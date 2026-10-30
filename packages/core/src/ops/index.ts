@@ -49,7 +49,7 @@ export const OPERATIONS = {
   }),
   stop: op({
     title: 'Stop',
-    description: 'Stops the containers without removing them or their data.',
+    description: 'Stops the containers (except Traefik and the admin UI) without removing them or their data.',
     destructive: false,
     docker: true,
     args: noArgs,
@@ -58,7 +58,7 @@ export const OPERATIONS = {
   }),
   clean: op({
     title: 'Clean',
-    description: 'Removes every container, ./data, competitor images and framework clones.',
+    description: 'Removes every container except Traefik and the admin UI, plus ./data, competitor images and framework clones.',
     destructive: true,
     docker: true,
     args: noArgs,

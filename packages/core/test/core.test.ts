@@ -2,8 +2,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { configSchema, deriveConfig, readConfig, writeConfig } from '../src/config.js';
+import { configSchema, deriveConfig, readConfig, readPulldeckToken, writeConfig, writePulldeckEnv } from '../src/config.js';
 import { competitorsSql, competitorsYaml } from '../src/generate.js';
+import { BASE_FILES, CLEAN_FILES, STOP_FILES } from '../src/compose-files.js';
 import { addCompetitorToConfig } from '../src/ops/users.js';
 
 const sample = {
@@ -97,5 +98,31 @@ describe('config file', () => {
     expect(() => addCompetitorToConfig(dir, { username: 'comp01', password: 'test123' })).not.toThrow();
     expect(readConfig(dir).competitors).toHaveLength(1);
     expect(() => addCompetitorToConfig(dir, { username: 'comp01', password: 'other' })).toThrow(/already exists/);
+  });
+});
+
+describe('compose stacks', () => {
+  it('never stops or removes the base layer', () => {
+    for (const file of BASE_FILES) {
+      expect(STOP_FILES).not.toContain(file);
+      expect(CLEAN_FILES).not.toContain(file);
+    }
+    expect([...STOP_FILES, ...CLEAN_FILES]).not.toContain('admin.yaml');
+  });
+});
+
+describe('pulldeck env', () => {
+  it('generates the token once and follows the root credentials', () => {
+    const dir = tempRepo();
+    fs.writeFileSync(path.join(dir, 'pulldeck.env'), 'DOCKER_USERNAME=old\nDOCKER_PASSWORD=stale\nEXTRA=1\n');
+    const token = writePulldeckEnv(dir, deriveConfig(configSchema.parse(sample)));
+    expect(token).toMatch(/^[\w-]{20,}$/);
+    expect(writePulldeckEnv(dir, deriveConfig(configSchema.parse(sample)))).toBe(token);
+    expect(readPulldeckToken(dir)).toBe(token);
+    const env = fs.readFileSync(path.join(dir, 'pulldeck.env'), 'utf8');
+    expect(env).toContain('DOCKER_USERNAME=root\n');
+    expect(env).toContain('DOCKER_PASSWORD=change-me\n');
+    expect(env).toContain('EXTRA=1\n');
+    expect(env).toContain('DOCKER_MANAGER_RUNNING_IN_CONTAINER=true\n');
   });
 });

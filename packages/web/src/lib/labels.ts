@@ -6,10 +6,10 @@ export const OPERATION_LABELS: Record<OperationName, { title: string; descriptio
     description: 'Elindít minden stacket, létrehozza a Gitea felhasználókat, szervezeteket és framework sablonokat a konfiguráció alapján. Ha korábban már futott, előbb Tisztítás kell.',
   },
   start: { title: 'Indítás', description: 'Újraindítja a leállított konténereket.' },
-  stop: { title: 'Leállítás', description: 'Leállítja a konténereket, de nem törli őket és az adatokat.' },
+  stop: { title: 'Leállítás', description: 'Leállítja a konténereket (a Traefik és az admin felület kivételével), de nem törli őket és az adatokat.' },
   clean: {
     title: 'Tisztítás',
-    description: 'Törli az összes konténert, a ./data könyvtárat, a versenyzői image-eket és a framework klónokat.',
+    description: 'Törli az összes konténert (a Traefik és az admin felület kivételével), a ./data könyvtárat, a versenyzői image-eket és a framework klónokat.',
   },
   createUser: {
     title: 'Versenyző létrehozása',

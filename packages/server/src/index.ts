@@ -29,7 +29,8 @@ const jobs = new JobManager(repoDir, path.resolve(process.env.JOB_LOG_DIR ?? pat
 const limiter = loginLimiter();
 
 const app = express();
-app.set('trust proxy', 'loopback');
+// Exactly one proxy (Traefik) in front: req.ip is the client Traefik saw, req.secure follows X-Forwarded-Proto.
+app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 

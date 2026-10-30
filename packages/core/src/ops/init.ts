@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { throwIfAborted, type OpContext } from '../context.js';
-import { loadConfig, readPulldeckToken } from '../config.js';
+import { loadConfig, writePulldeckEnv } from '../config.js';
 import { compose, giteaCli, run } from '../exec.js';
 import { INIT_LATE, INIT_POST, INIT_PRE_GITEA, INIT_RUNNERS } from '../compose-files.js';
 import { competitorsSql, competitorsYaml, dotEnv } from '../generate.js';
@@ -54,7 +54,7 @@ export async function init(ctx: OpContext): Promise<void> {
   await up(INIT_RUNNERS);
 
   const pulldeckBaseUrl = `${cfg.protocol}://clara.${cfg.domain}`;
-  const pulldeckToken = readPulldeckToken(ctx.repoDir);
+  const pulldeckToken = ctx.dryRun ? 'dry-run' : writePulldeckEnv(ctx.repoDir, cfg);
 
   const token = await createPat(ctx, cfg.username, cfg.password);
 

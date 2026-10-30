@@ -111,6 +111,16 @@ export async function ensureDocker(ctx: OpContext): Promise<void> {
   }
 }
 
-export function compose(ctx: OpContext, file: string, args: string[], env: Record<string, string>): Promise<RunResult> {
-  return run(ctx, 'docker', ['compose', '-f', file, ...args], { env });
+/** Must match DOCKER_PROJECT_NAME in infra-updater.yaml and the project install.sh starts Traefik in. */
+export const COMPOSE_PROJECT = 'infra';
+
+/**
+ * pulldeck.yaml and infra-updater.yaml mount the repo by its absolute host path (INFRA_DIR). In the admin
+ * container the repo is mounted at that same path, so repoDir is the host path there too.
+ */
+export function compose(ctx: OpContext, file: string, args: string[], env: Record<string, string>, opts: RunOptions = {}): Promise<RunResult> {
+  return run(ctx, 'docker', ['compose', '-f', file, ...args], {
+    ...opts,
+    env: { COMPOSE_PROJECT_NAME: COMPOSE_PROJECT, INFRA_DIR: ctx.repoDir, ...env },
+  });
 }
