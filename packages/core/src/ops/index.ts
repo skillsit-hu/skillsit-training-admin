@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { OperationError, type OpContext } from '../context.js';
 import { competitorSchema } from '../config.js';
+import { ensureDocker } from '../exec.js';
 import { init } from './init.js';
 import { clean, start, stop } from './lifecycle.js';
 import { createUser, disableCompetitorLogins, setupOrgs } from './users.js';
@@ -13,6 +14,8 @@ interface OperationDef<S extends z.ZodTypeAny> {
   description: string;
   /** Destroys or overwrites data; the UI asks for typed confirmation. */
   destructive: boolean;
+  /** Checked up front with ensureDocker. */
+  docker: boolean;
   args: S;
   /** CLI usage, positional arguments mapped onto the args object. */
   cliArgs: (keyof z.infer<S> & string)[];
@@ -30,6 +33,7 @@ export const OPERATIONS = {
     title: 'Initialize environment',
     description: 'Starts every stack, creates Gitea users, organisations and framework templates from main-config.json. Run Clean first if it was initialized before.',
     destructive: true,
+    docker: true,
     args: noArgs,
     cliArgs: [],
     run: (ctx) => init(ctx),
@@ -38,6 +42,7 @@ export const OPERATIONS = {
     title: 'Start',
     description: 'Restarts the stopped containers.',
     destructive: false,
+    docker: true,
     args: noArgs,
     cliArgs: [],
     run: (ctx) => start(ctx),
@@ -46,6 +51,7 @@ export const OPERATIONS = {
     title: 'Stop',
     description: 'Stops the containers without removing them or their data.',
     destructive: false,
+    docker: true,
     args: noArgs,
     cliArgs: [],
     run: (ctx) => stop(ctx),
@@ -54,6 +60,7 @@ export const OPERATIONS = {
     title: 'Clean',
     description: 'Removes every container, ./data, competitor images and framework clones.',
     destructive: true,
+    docker: true,
     args: noArgs,
     cliArgs: [],
     run: (ctx) => clean(ctx),
@@ -62,6 +69,7 @@ export const OPERATIONS = {
     title: 'Create competitor',
     description: 'Adds a competitor to the running environment (Gitea user, team, secrets, MySQL user) and to main-config.json.',
     destructive: false,
+    docker: true,
     args: z.object({
       username: competitorSchema.shape.username,
       password: competitorSchema.shape.password,
@@ -75,6 +83,7 @@ export const OPERATIONS = {
     title: 'Disable competitor logins',
     description: "Deactivates every competitor's Gitea account (e.g. at the end of the competition).",
     destructive: false,
+    docker: false,
     args: noArgs,
     cliArgs: [],
     run: (ctx) => disableCompetitorLogins(ctx),
@@ -83,6 +92,7 @@ export const OPERATIONS = {
     title: 'Create base organisations',
     description: 'Creates the images, frameworks and competitionc Gitea organisations.',
     destructive: false,
+    docker: false,
     args: noArgs,
     cliArgs: [],
     run: (ctx) => setupOrgs(ctx),
@@ -117,5 +127,6 @@ export async function runOperation(ctx: OpContext, name: OperationName, args: un
   if (!parsed.success) {
     throw new OperationError(`Invalid arguments: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`);
   }
+  if (def.docker) await ensureDocker(ctx);
   await def.run(ctx, parsed.data);
 }

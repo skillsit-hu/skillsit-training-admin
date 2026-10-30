@@ -100,6 +100,17 @@ export function giteaCli(ctx: OpContext, args: string[], opts?: RunOptions): Pro
   return run(ctx, 'docker', ['exec', 'gitea', 'su', '-c', command, 'git'], opts);
 }
 
+/** Fails fast with a readable message instead of letting every docker call fail one by one. */
+export async function ensureDocker(ctx: OpContext): Promise<void> {
+  if (ctx.dryRun) return;
+  const res = await run(ctx, 'docker', ['version', '--format', '{{.Server.Version}}'], { capture: true, quiet: true });
+  if (!res.ok || !res.stdout.trim()) {
+    throw new OperationError(
+      `The Docker daemon is not reachable (platform: ${process.platform}). Is Docker running, and is this process on the same host as the daemon?`,
+    );
+  }
+}
+
 export function compose(ctx: OpContext, file: string, args: string[], env: Record<string, string>): Promise<RunResult> {
   return run(ctx, 'docker', ['compose', '-f', file, ...args], { env });
 }
