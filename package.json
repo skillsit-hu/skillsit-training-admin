@@ -1,0 +1,21 @@
+{
+  "name": "infra-admin",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/core",
+    "packages/server",
+    "packages/web"
+  ],
+  "scripts": {
+    "build": "npm run build -w @infra/core && npm run build -w @infra/server && npm run build -w @infra/web",
+    "typecheck": "npm run build -w @infra/core && npm run typecheck -w @infra/server && npm run typecheck -w @infra/web",
+    "test": "npm run test -w @infra/core",
+    "dev": "npm run build -w @infra/core && concurrently -n core,server,web \"npm run dev -w @infra/core\" \"npm run dev -w @infra/server\" \"npm run dev -w @infra/web\"",
+    "start": "node packages/server/dist/index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  }
+}

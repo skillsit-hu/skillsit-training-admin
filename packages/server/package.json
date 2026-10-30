@@ -1,0 +1,21 @@
+{
+  "name": "@infra/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch --clear-screen=false src/index.ts"
+  },
+  "dependencies": {
+    "@infra/core": "*",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2"
+  }
+}
