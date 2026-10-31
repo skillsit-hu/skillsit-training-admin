@@ -9,7 +9,7 @@ export const OPERATION_LABELS: Record<OperationName, { title: string; descriptio
   stop: { title: 'Leállítás', description: 'Leállítja a konténereket (a Traefik és az admin felület kivételével), de nem törli őket és az adatokat.' },
   clean: {
     title: 'Tisztítás',
-    description: 'Törli az összes konténert (a Traefik és az admin felület kivételével), a ./data könyvtárat, a versenyzői image-eket és a framework klónokat.',
+    description: 'Törli az összes konténert (a Traefik és az admin felület kivételével), az adat volume-okat (adatbázisok, runnerek, csomag-cache), a versenyzői image-eket és a framework klónokat.',
   },
   createUser: {
     title: 'Versenyző létrehozása',

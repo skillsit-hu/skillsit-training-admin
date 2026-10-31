@@ -22,14 +22,17 @@ export async function stop(ctx: OpContext): Promise<void> {
 export async function clean(ctx: OpContext): Promise<void> {
   const { domain, competitors } = loadConfig(ctx.repoDir);
 
-  for (const file of CLEAN_FILES) await compose(ctx, file, ['down'], { GITEA_HOSTNAME: domain });
+  // -v removes the stacks' named volumes (databases, registry cache, runner state)
+  for (const file of CLEAN_FILES) await compose(ctx, file, ['down', '-v'], { GITEA_HOSTNAME: domain });
 
-  // The containers write ./data as root
-  if (process.getuid?.() === 0) {
-    ctx.log.info('Removing ./data');
-    if (!ctx.dryRun) fs.rmSync(path.join(ctx.repoDir, 'data'), { recursive: true, force: true });
-  } else {
-    await run(ctx, 'sudo', ['rm', '-rf', './data']);
+  // Leftover from before the named volumes, when the stacks bind-mounted ./data (written as root)
+  if (fs.existsSync(path.join(ctx.repoDir, 'data'))) {
+    if (process.getuid?.() === 0) {
+      ctx.log.info('Removing ./data');
+      if (!ctx.dryRun) fs.rmSync(path.join(ctx.repoDir, 'data'), { recursive: true, force: true });
+    } else {
+      await run(ctx, 'sudo', ['rm', '-rf', './data']);
+    }
   }
 
   const images = (await run(ctx, 'docker', ['images', '--format', '{{.Repository}}:{{.Tag}} {{.ID}}'], { capture: true }))

@@ -58,7 +58,7 @@ export const OPERATIONS = {
   }),
   clean: op({
     title: 'Clean',
-    description: 'Removes every container except Traefik and the admin UI, plus ./data, competitor images and framework clones.',
+    description: 'Removes every container except Traefik and the admin UI, plus their data volumes, competitor images and framework clones.',
     destructive: true,
     docker: true,
     args: noArgs,

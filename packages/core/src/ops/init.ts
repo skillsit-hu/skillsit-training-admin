@@ -97,9 +97,8 @@ export async function init(ctx: OpContext): Promise<void> {
   await up(mysql);
   // Packagist mirror for Laravel vendor package caching
   await up(packagist);
+  // Its storage is a named volume, initialised from the image with the verdaccio user as owner
   await up(verdaccio);
-  // Verdaccio needs write access to its storage to accept package uploads
-  await run(ctx, 'chmod', ['-R', '777', './data/verdaccio']);
   const [competitors, pulldeck, sablier, infraUpdater] = INIT_LATE;
   await up(competitors);
   // Pulldeck lets the Gitea Actions redeploy competitors' containers

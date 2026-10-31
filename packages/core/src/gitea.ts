@@ -86,13 +86,20 @@ function reportFailure(ctx: OpContext, what: string, res: GiteaResponse): void {
   ctx.log.error(`${what} failed (HTTP ${res.status}): ${res.text}`);
 }
 
+// A fresh gitea-db (MySQL 8 initialising its data dir) can take well over a minute, longer on Docker Desktop.
 export async function waitForGitea(ctx: OpContext): Promise<void> {
-  const retries = 10;
+  const retries = 36;
   for (let count = 0; ; count++) {
     const res = await gitea(ctx, 'GET', '/version', { timeout: 5_000 });
     if (res.status !== 0) return;
-    if (count >= retries) throw new OperationError('Gitea did not become ready in time.');
-    ctx.log.info('Waiting for Gitea to be ready...');
+    if (count >= retries) {
+      ctx.log.error(`Last error reaching ${GITEA_API}: ${res.text}`);
+      await run(ctx, 'docker', ['ps', '-a', '--filter', 'name=^gitea', '--format', '{{.Names}}: {{.Status}}']);
+      await run(ctx, 'docker', ['logs', '--tail', '40', 'gitea']);
+      await run(ctx, 'docker', ['logs', '--tail', '30', 'gitea-db']);
+      throw new OperationError('Gitea did not become ready in time; see the container status and log above.');
+    }
+    ctx.log.info(`Waiting for Gitea to be ready (${count + 1}/${retries})...`);
     await sleep(5_000, ctx.signal);
   }
 }
