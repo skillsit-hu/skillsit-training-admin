@@ -1,9 +1,9 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { throwIfAborted, type OpContext } from '../context.js';
 import { loadConfig, writePulldeckEnv } from '../config.js';
 import { compose, giteaCli, run } from '../exec.js';
 import { INIT_LATE, INIT_POST, INIT_PRE_GITEA, INIT_RUNNERS } from '../compose-files.js';
+import { writeRepoFile } from '../files.js';
 import { competitorsSql, competitorsYaml, dotEnv } from '../generate.js';
 import {
   COMPETITOR_TEAM,
@@ -90,8 +90,8 @@ export async function init(ctx: OpContext): Promise<void> {
     }
   }
 
-  fs.writeFileSync(path.join(ctx.repoDir, 'competitors.yaml'), competitorsYaml(cfg));
-  fs.writeFileSync(path.join(ctx.repoDir, 'config/mysql/competitors.sql'), competitorsSql(cfg));
+  writeRepoFile(ctx.repoDir, path.join(ctx.repoDir, 'competitors.yaml'), competitorsYaml(cfg));
+  writeRepoFile(ctx.repoDir, path.join(ctx.repoDir, 'config/mysql/competitors.sql'), competitorsSql(cfg));
 
   const [mysql, packagist, verdaccio] = INIT_POST;
   await up(mysql);
@@ -110,7 +110,7 @@ export async function init(ctx: OpContext): Promise<void> {
 
   await createWebhook(ctx, cfg.domain, cfg.username, cfg.password);
 
-  fs.writeFileSync(path.join(ctx.repoDir, '.env'), dotEnv({
+  writeRepoFile(ctx.repoDir, path.join(ctx.repoDir, '.env'), dotEnv({
     DOMAIN: cfg.domain,
     ENABLE_HTTPS: cfg.enableHttps,
     USERNAME: cfg.username,

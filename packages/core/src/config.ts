@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { OperationError } from './context.js';
+import { writeRepoFile } from './files.js';
 import { configSchema, type Competitor, type MainConfig } from './schema.js';
 
 export * from './schema.js';
@@ -35,11 +36,14 @@ export function readConfig(repoDir: string): MainConfig {
   return parsed.data;
 }
 
-/** Writes via a temp file + rename; infra-updater mounts the whole config dir, so the new inode is picked up. */
+/**
+ * Writes via a temp file + rename; infra-updater mounts the whole config dir, so the new inode is picked up.
+ * World-readable like the git checkout it replaces: infra-updater reads it, possibly as a non-root user.
+ */
 export function writeConfig(repoDir: string, config: MainConfig): void {
   const file = path.join(repoDir, CONFIG_FILE);
   const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, `${JSON.stringify(config, null, 2)}\n`);
+  writeRepoFile(repoDir, tmp, `${JSON.stringify(config, null, 2)}\n`, 0o644);
   fs.renameSync(tmp, file);
 }
 
@@ -97,6 +101,6 @@ export function writePulldeckEnv(repoDir: string, cfg: DerivedConfig): string {
   env.set('DOCKER_MANAGER_RUNNING_IN_CONTAINER', 'true');
   env.set('DOCKER_USERNAME', cfg.username);
   env.set('DOCKER_PASSWORD', cfg.password);
-  fs.writeFileSync(file, [...env].map(([k, v]) => `${k}=${v}`).join('\n') + '\n');
+  writeRepoFile(repoDir, file, [...env].map(([k, v]) => `${k}=${v}`).join('\n') + '\n', 0o600);
   return env.get('AUTH_TOKEN')!;
 }

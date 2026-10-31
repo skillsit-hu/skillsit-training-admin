@@ -4,7 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   OperationError,
+  giveToRepoOwner,
   runOperation,
+  writeRepoFile,
   type JobDetail,
   type JobEvent,
   type JobSummary,
@@ -46,7 +48,11 @@ export class JobManager {
   private current: Job | null = null;
 
   constructor(private readonly repoDir: string, private readonly logDir: string, private readonly dryRun: boolean) {
-    fs.mkdirSync(logDir, { recursive: true });
+    // mkdir returns the first directory it had to create; hand every new level back to the repo owner.
+    const created = fs.mkdirSync(logDir, { recursive: true });
+    if (created) {
+      for (let dir = logDir; dir.length >= created.length; dir = path.dirname(dir)) giveToRepoOwner(repoDir, dir);
+    }
   }
 
   list(): JobSummary[] {
@@ -81,6 +87,7 @@ export class JobManager {
       logFile: path.join(this.logDir, `${id}.log`),
     };
     job.events.setMaxListeners(100);
+    writeRepoFile(this.repoDir, job.logFile, '');
     this.jobs.set(id, job);
     this.current = job;
     this.prune();

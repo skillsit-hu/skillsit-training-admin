@@ -1,8 +1,8 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { OperationError, type OpContext } from '../context.js';
 import { CONFIG_FILE, configSchema, deriveConfig, readConfig, readPulldeckToken, writeConfig, type MainConfig } from '../config.js';
 import { compose, giteaCli } from '../exec.js';
+import { appendRepoFile } from '../files.js';
 import { newUserSql } from '../generate.js';
 import { COMPETITOR_TEAM, FRAMEWORK_ORG, addUserToTeam, createOrg, createPat, gitea, setCompetitorSecrets } from '../gitea.js';
 
@@ -46,7 +46,7 @@ export async function createUser(ctx: OpContext, args: CreateUserArgs): Promise<
   await setCompetitorSecrets(ctx, user, pass, `${cfg.protocol}://clara.${cfg.domain}`, pulldeckToken);
 
   const sql = newUserSql(user, pass);
-  fs.appendFileSync(path.join(ctx.repoDir, 'config/mysql/competitors.sql'), sql);
+  appendRepoFile(ctx.repoDir, path.join(ctx.repoDir, 'config/mysql/competitors.sql'), sql);
   await compose(ctx, 'mysql.yaml', ['exec', 'competitor_db', 'mysql',
     `--user=${cfg.username}`, `--password=${cfg.password}`, '-e', sql.replaceAll('\n', '')], {}, { secrets: [cfg.password, pass] });
   ctx.log.info(`User '${user}' created.`);
