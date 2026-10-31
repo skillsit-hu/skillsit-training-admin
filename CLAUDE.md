@@ -54,6 +54,7 @@ This repo holds the admin app of [skillsit-training-infra](https://github.com/sk
 - Framework templates come from `frameworks` in `main-config.json` (`frameworkSchema`, defaulting to `DEFAULT_FRAMEWORKS` in `schema.ts`), and the UI edits them.
   - Init clones each template into `data-admin/frameworks/<name>` (`FRAMEWORK_CLONE_DIR`), never into the repo root, because names come from the UI.
   - It rewrites `.gitea/workflows/docker-ci.yaml` if the template has one, then pushes `HEAD` to the `frameworks` org and deletes the clone. Clean removes leftovers.
+  - `syncFrameworks` (`ops/frameworks.ts`) does the same in a running environment. It imports the listed templates missing from the org and deletes the org's repos that are no longer listed. Existing ones are skipped. Repos generated from a template are independent copies, so deleting is safe.
 - Competitor sync (the former infra-updater service, now `ops/sync.ts`):
   - Gitea's system webhook for repository events posts to `WEBHOOK_PATH` (`/api/hooks/gitea`) on the admin server, at `WEBHOOK_URL` (`http://infra-admin:8090`, over the shared network). `gitea.yaml` allows that private host with `GITEA__webhook__ALLOWED_HOST_LIST`.
   - The route is mounted before `express.json`, because it needs the raw body. It is authenticated by the `X-Gitea-Signature` HMAC, not the session. The secret is generated into `data-admin/webhook-secret` (600) and set on the hook by init's `createWebhook`, which also removes an old infra-updater hook.

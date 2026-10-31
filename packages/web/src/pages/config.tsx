@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, EyeOff, KeyRound, Pencil, Plus, Save, Trash2, UserPlus, X } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, Pencil, Plus, RefreshCw, Save, Trash2, UserPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { competitorHost, competitorSchema, configSchema, frameworkSchema, type Competitor, type Framework, type MainConfig } from '@infra/core/schema';
 import { Badge } from '@/components/ui/badge';
@@ -121,10 +121,12 @@ function CompetitorDialog({ open, initial, existing, onClose, onSave }: Competit
 function FrameworksCard({
   frameworks,
   issues,
+  dirty,
   onChange,
 }: {
   frameworks: Framework[];
   issues: Issues;
+  dirty: boolean;
   onChange: (frameworks: Framework[]) => void;
 }) {
   const [draft, setDraft] = useState<Framework>({ name: '', url: '' });
@@ -148,8 +150,19 @@ function FrameworksCard({
         <CardTitle>Framework sablonok ({frameworks.length})</CardTitle>
         <CardDescription>
           Az Inicializálás ezeket klónozza és tölti fel sablon repóként a Gitea <span className="font-mono">frameworks</span> szervezetébe. A
-          versenyzők ezekből hozzák létre a repóikat. A változás a következő Inicializáláskor lép életbe.
+          versenyzők ezekből hozzák létre a repóikat. Futó környezetben mentés után a „Szinkronizálás a Giteával” gomb tölti fel az újakat és
+          törli a levetteket.
         </CardDescription>
+        <CardAction>
+          <ConfirmOperation name="syncFrameworks" destructive>
+            {(open) => (
+              <Button size="sm" variant="outline" onClick={() => (dirty ? toast.warning('Előbb mentsd a konfigurációt.') : open())}>
+                <RefreshCw />
+                Szinkronizálás a Giteával
+              </Button>
+            )}
+          </ConfirmOperation>
+        </CardAction>
       </CardHeader>
       <CardContent className="grid gap-4">
         {frameworks.length === 0 && <p className="text-sm text-muted-foreground">Nincs sablon.</p>}
@@ -454,7 +467,7 @@ export function ConfigPage() {
         </CardContent>
       </Card>
 
-      <FrameworksCard frameworks={draft.frameworks} issues={issues} onChange={(frameworks) => set({ frameworks })} />
+      <FrameworksCard frameworks={draft.frameworks} issues={issues} dirty={dirty} onChange={(frameworks) => set({ frameworks })} />
 
       <CompetitorDialog
         open={dialog.open}

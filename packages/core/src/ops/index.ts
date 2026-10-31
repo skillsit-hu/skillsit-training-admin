@@ -4,10 +4,11 @@ import { competitorSchema } from '../config.js';
 import { ensureDocker } from '../exec.js';
 import { init } from './init.js';
 import { clean, start, stop } from './lifecycle.js';
+import { syncFrameworks } from './frameworks.js';
 import { syncCompetitors } from './sync.js';
 import { createUser, disableCompetitorLogins, setupOrgs } from './users.js';
 
-export { init, start, stop, clean, createUser, disableCompetitorLogins, setupOrgs, syncCompetitors };
+export { init, start, stop, clean, createUser, disableCompetitorLogins, setupOrgs, syncCompetitors, syncFrameworks };
 export { addCompetitorToConfig, type CreateUserArgs } from './users.js';
 
 interface OperationDef<S extends z.ZodTypeAny> {
@@ -96,6 +97,15 @@ export const OPERATIONS = {
     args: noArgs,
     cliArgs: [],
     run: (ctx) => syncCompetitors(ctx),
+  }),
+  syncFrameworks: op({
+    title: 'Sync framework templates',
+    description: 'Imports the templates of main-config.json that are missing from the Gitea frameworks organisation and deletes the ones no longer listed. Repositories created from a template are not affected.',
+    destructive: true,
+    docker: false,
+    args: noArgs,
+    cliArgs: [],
+    run: (ctx) => syncFrameworks(ctx),
   }),
   setupOrgs: op({
     title: 'Create base organisations',

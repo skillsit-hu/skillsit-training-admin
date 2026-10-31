@@ -23,6 +23,10 @@ export const OPERATION_LABELS: Record<OperationName, { title: string; descriptio
     title: 'Versenyzői konténerek szinkronizálása',
     description: 'A versenyzők Gitea repói alapján újragenerálja a versenyzői konténereket és útvonalakat. A Gitea repository webhook automatikusan futtatja.',
   },
+  syncFrameworks: {
+    title: 'Sablonok szinkronizálása',
+    description: 'Futó környezetben feltölti a konfigurációban szereplő, de a Gitea frameworks szervezetéből hiányzó sablonokat, és törli a listáról levetteket. A sablonokból már létrehozott versenyzői repókat nem érinti.',
+  },
   setupOrgs: { title: 'Alap szervezetek', description: 'Létrehozza az images, frameworks és competitionc Gitea szervezeteket.' },
 };
 
