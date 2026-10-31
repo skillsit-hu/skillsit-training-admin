@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { OperationError } from './context.js';
 import { writeRepoFile } from './files.js';
+import { adminRoute } from './generate.js';
 import { configSchema, type Competitor, type MainConfig } from './schema.js';
 
 export * from './schema.js';
@@ -123,4 +124,19 @@ export function writePulldeckEnv(repoDir: string, cfg: DerivedConfig): string {
   env.set('DOCKER_PASSWORD', cfg.password);
   writeRepoFile(repoDir, file, [...env].map(([k, v]) => `${k}=${v}`).join('\n') + '\n', 0o600);
   return env.get('AUTH_TOKEN')!;
+}
+
+export const ADMIN_ROUTE = 'config/traefik/admin.yaml';
+
+/** Writes the admin UI's own Traefik route (see adminRoute); skipped while the Traefik config dir is missing. */
+export function writeAdminRoute(repoDir: string, cfg: DerivedConfig = loadConfig(repoDir)): void {
+  const file = path.join(repoDir, ADMIN_ROUTE);
+  if (!fs.existsSync(path.dirname(file))) return;
+  const content = adminRoute(cfg);
+  try {
+    if (fs.readFileSync(file, 'utf8') === content) return;
+  } catch {
+    // written below
+  }
+  writeRepoFile(repoDir, file, content);
 }

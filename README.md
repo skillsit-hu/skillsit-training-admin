@@ -14,14 +14,13 @@ The image runs on `linux/amd64` and `linux/arm64`.
 
 ## Usage
 
-You don't start the container by hand. The infra repo's `install.sh` pulls the image and starts it through `admin.yaml`. To update a running host:
+You don't start the container by hand. The infra repo's `install.sh` pulls the image and starts it through `admin.yaml`. To update a running host, run this in the infra checkout:
 
 ```bash
-docker compose -p infra-admin --env-file .admin.env -f admin.yaml pull
-docker compose -p infra-admin --env-file .admin.env -f admin.yaml up -d
+sudo INFRA_KEEP_CONFIG=1 sh install.sh
 ```
 
-Run these in the infra checkout, or just re-run `sudo INFRA_KEEP_CONFIG=1 sh install.sh`.
+The container has no Traefik labels. On start and on every config save it writes its route to `config/traefik/admin.yaml` in the infra repo.
 
 ## Development
 

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { competitorHost, configSchema, deriveConfig, readConfig, readPulldeckToken, routingEnv, writeConfig, writePulldeckEnv } from '../src/config.js';
+import { competitorHost, configSchema, deriveConfig, readConfig, readPulldeckToken, routingEnv, writeAdminRoute, writeConfig, writePulldeckEnv } from '../src/config.js';
 import { competitorRoutes, competitorsSql, competitorsYaml, syncedCompetitorsYaml } from '../src/generate.js';
 import { verifyWebhookSignature, webhookSecret } from '../src/webhook.js';
 import { BASE_FILES, CLEAN_FILES, STOP_FILES } from '../src/compose-files.js';
@@ -195,5 +195,18 @@ describe('webhook', () => {
     expect(verifyWebhookSignature(secret, body, signature)).toBe(true);
     expect(verifyWebhookSignature(secret, Buffer.from('{}'), signature)).toBe(false);
     expect(verifyWebhookSignature(secret, body, 'zz')).toBe(false);
+  });
+});
+
+describe('admin route', () => {
+  it('follows the domain and the Let\'s Encrypt setting', () => {
+    const dir = tempRepo({ ...sample, letsencrypt: true });
+    fs.mkdirSync(path.join(dir, 'config/traefik'));
+    writeAdminRoute(dir);
+    const route = JSON.parse(fs.readFileSync(path.join(dir, 'config/traefik/admin.yaml'), 'utf8').replace(/^#.*\n/, ''));
+    expect(route.http.routers['infra-admin']).toMatchObject({ rule: 'Host(`admin.local.skill17.com`)', tls: { certResolver: 'letsencrypt' } });
+    expect(route.http.services['infra-admin'].loadBalancer.servers[0].url).toBe('http://infra-admin:8090');
+    writeAdminRoute(dir, deriveConfig(configSchema.parse(sample)));
+    expect(fs.readFileSync(path.join(dir, 'config/traefik/admin.yaml'), 'utf8')).toContain('"tls": {}');
   });
 });

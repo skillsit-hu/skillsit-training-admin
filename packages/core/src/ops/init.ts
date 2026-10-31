@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { throwIfAborted, type OpContext } from '../context.js';
-import { loadConfig, routingEnv, writePulldeckEnv } from '../config.js';
+import { loadConfig, routingEnv, writeAdminRoute, writePulldeckEnv } from '../config.js';
 import { compose, ensureBaseLayer, giteaCli, run } from '../exec.js';
 import { INIT_LATE, INIT_POST, INIT_PRE_GITEA, INIT_RUNNERS } from '../compose-files.js';
 import { writeRepoFile } from '../files.js';
@@ -41,6 +41,7 @@ export async function init(ctx: OpContext): Promise<void> {
 
   const [traefik, giteaFile] = INIT_PRE_GITEA;
   await ensureBaseLayer(ctx);
+  writeAdminRoute(ctx.repoDir, cfg);
   await up(traefik);
   // gitea.yaml is the first infra stack: drop whatever an earlier run left in the infra project
   await up(giteaFile, '--remove-orphans');

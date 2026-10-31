@@ -11,6 +11,7 @@ import {
   listOperations,
   readConfig,
   WEBHOOK_PATH,
+  writeAdminRoute,
   writeConfig,
   type ApiError,
   type JobEvent,
@@ -91,6 +92,8 @@ api.put('/config', (req, res) => {
     return;
   }
   writeConfig(repoDir, parsed.data);
+  // A changed domain or Let's Encrypt setting moves the admin's own route right away
+  writeAdminRoute(repoDir);
   res.json(parsed.data);
 });
 
@@ -208,6 +211,11 @@ function session(username: string): SessionInfo {
 
 app.listen(port, host, () => {
   const log = consoleLogger();
+  try {
+    writeAdminRoute(repoDir);
+  } catch (err) {
+    log.error(`Could not write the admin route: ${(err as Error).message}`);
+  }
   log.info(`Infra admin listening on http://${host}:${port} (repo: ${repoDir}${dryRun ? ', DRY RUN' : ''})`);
   if (!fs.existsSync(webDist)) log.info(`No web build at ${webDist}; API only.`);
 });
