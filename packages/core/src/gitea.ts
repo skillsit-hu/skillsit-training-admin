@@ -243,11 +243,21 @@ export async function importFramework(ctx: OpContext, { token, username, passwor
     token,
     body: { name, private: false, template: true },
   });
-  if (!res.json?.id) return reportFailure(ctx, `Creating repository ${name} on Gitea`, res);
-  ctx.log.info(`Repository ${name} created in the ${FRAMEWORK_ORG} organization on Gitea.`);
+  if (res.status === 409) {
+    // Left by an earlier init whose push failed; push into it again.
+    ctx.log.info(`Repository ${name} already exists in the ${FRAMEWORK_ORG} organization, pushing to it.`);
+  } else if (!res.json?.id) {
+    return reportFailure(ctx, `Creating repository ${name} on Gitea`, res);
+  } else {
+    ctx.log.info(`Repository ${name} created in the ${FRAMEWORK_ORG} organization on Gitea.`);
+  }
 
-  const remote = `https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${giteaHost}/${FRAMEWORK_ORG}/${name}.git`;
-  const secrets = [encodeURIComponent(password), password];
+  // Push to Gitea directly like the API calls: the public https://git.<domain> needs DNS and a valid certificate.
+  const remoteUrl = new URL(`${GITEA_API}/${FRAMEWORK_ORG}/${name}.git`);
+  remoteUrl.username = username;
+  remoteUrl.password = password;
+  const remote = remoteUrl.toString();
+  const secrets = [remoteUrl.password, encodeURIComponent(password), password];
   await run(ctx, 'git', ['remote', 'add', 'gitea', remote], { cwd: name, secrets });
   const pushed = (await run(ctx, 'git', ['push', 'gitea', 'main'], { cwd: name, env: { GIT_TERMINAL_PROMPT: '0' }, secrets })).ok;
   if (pushed) ctx.log.info(`Repository ${name} pushed to the ${FRAMEWORK_ORG} organization on Gitea with updated GitHub Action!`);
