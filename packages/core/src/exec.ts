@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { OperationError, type OpContext } from './context.js';
+import { BASE_FILES, BASE_PROJECT, SHARED_NETWORK } from './compose-files.js';
 
 export interface RunOptions {
   env?: Record<string, string>;
@@ -119,8 +120,25 @@ export const COMPOSE_PROJECT = 'infra';
  * container the repo is mounted at that same path, so repoDir is the host path there too.
  */
 export function compose(ctx: OpContext, file: string, args: string[], env: Record<string, string>, opts: RunOptions = {}): Promise<RunResult> {
+  const project = BASE_FILES.includes(file) ? BASE_PROJECT : COMPOSE_PROJECT;
   return run(ctx, 'docker', ['compose', '-f', file, ...args], {
     ...opts,
-    env: { COMPOSE_PROJECT_NAME: COMPOSE_PROJECT, INFRA_DIR: ctx.repoDir, ...env },
+    env: { COMPOSE_PROJECT_NAME: project, INFRA_DIR: ctx.repoDir, ...env },
   });
+}
+
+/**
+ * Creates the shared network if needed and removes a Traefik container left in the old `infra` project
+ * (it would block `up` in infra-traefik with a container name conflict). install.sh does the same.
+ */
+export async function ensureBaseLayer(ctx: OpContext): Promise<void> {
+  if (!(await run(ctx, 'docker', ['network', 'inspect', SHARED_NETWORK], { quiet: true })).ok) {
+    await run(ctx, 'docker', ['network', 'create', SHARED_NETWORK], { check: true });
+  }
+  const label = '{{index .Config.Labels "com.docker.compose.project"}}';
+  const traefik = await run(ctx, 'docker', ['inspect', '--format', label, 'traefik'], { capture: true, quiet: true });
+  if (traefik.ok && traefik.stdout.trim() !== BASE_PROJECT) {
+    ctx.log.info(`Moving Traefik from compose project '${traefik.stdout.trim()}' to '${BASE_PROJECT}'`);
+    await run(ctx, 'docker', ['rm', '-f', 'traefik']);
+  }
 }

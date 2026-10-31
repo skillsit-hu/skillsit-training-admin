@@ -1,11 +1,16 @@
 // Every docker compose stack managed by the operations, in one place.
 //
 // The base layer is traefik.yaml + admin.yaml, started by install.sh. stop and clean leave it running so the
-// admin UI (served through Traefik at admin.<domain>) stays reachable. admin.yaml is its own compose project
-// (`name: infra-admin`), so `--remove-orphans` on the other stacks can't remove it.
+// admin UI (served through Traefik at admin.<domain>) stays reachable. Both are their own compose projects
+// (infra-traefik, infra-admin): `--remove-orphans`, or `down` on a file without services (which acts on the
+// whole project), on the infra stacks must not reach them.
 
 /** Started by install.sh; init re-applies it so a changed HTTPS setting takes effect. */
 export const BASE_FILES = ['traefik.yaml'];
+/** Compose project of BASE_FILES (`name:` in traefik.yaml). */
+export const BASE_PROJECT = 'infra-traefik';
+/** Shared network; created with `docker network create` so no compose project owns (and removes) it. */
+export const SHARED_NETWORK = 'gitea';
 
 /** `up -d` order used by init. traefik.yaml creates the shared `gitea` network, so it comes first. */
 export const INIT_PRE_GITEA = ['traefik.yaml', 'gitea.yaml'];

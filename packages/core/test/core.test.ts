@@ -6,6 +6,7 @@ import { configSchema, deriveConfig, readConfig, readPulldeckToken, writeConfig,
 import { competitorsSql, competitorsYaml } from '../src/generate.js';
 import { BASE_FILES, CLEAN_FILES, STOP_FILES } from '../src/compose-files.js';
 import { addCompetitorToConfig } from '../src/ops/users.js';
+import { hasServices } from '../src/ops/lifecycle.js';
 
 const sample = {
   domain: 'local.skill17.com',
@@ -123,5 +124,19 @@ describe('pulldeck env', () => {
     expect(env).toContain('DOCKER_PASSWORD=change-me\n');
     expect(env).toContain('EXTRA=1\n');
     expect(env).toContain('DOCKER_MANAGER_RUNNING_IN_CONTAINER=true\n');
+  });
+});
+
+describe('hasServices', () => {
+  it('treats compose files without services as empty (down would hit the whole project)', () => {
+    const dir = tempRepo();
+    const write = (name: string, body: string) => fs.writeFileSync(path.join(dir, name), body);
+    write('empty-generated.yaml', competitorsYaml(deriveConfig(configSchema.parse({ ...sample, modules: [] }))));
+    write('empty-braces.yaml', 'services: {}\nnetworks:\n  gitea:\n    external: true\n');
+    write('real.yaml', competitorsYaml(deriveConfig(configSchema.parse(sample))));
+    expect(hasServices(dir, 'empty-generated.yaml')).toBe(false);
+    expect(hasServices(dir, 'empty-braces.yaml')).toBe(false);
+    expect(hasServices(dir, 'missing.yaml')).toBe(false);
+    expect(hasServices(dir, 'real.yaml')).toBe(true);
   });
 });
