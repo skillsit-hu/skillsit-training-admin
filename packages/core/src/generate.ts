@@ -14,7 +14,6 @@ export function competitorService(cfg: DerivedConfig, user: string, sub: string,
       - "traefik.http.routers.${id}.entrypoints=${cfg.entrypoint}"
       - "traefik.http.routers.${id}.tls=${cfg.enableHttps}"
       - "traefik.http.services.${id}.loadbalancer.server.port=80"
-      - "com.centurylinklabs.watchtower.enable=true"
 `;
 }
 

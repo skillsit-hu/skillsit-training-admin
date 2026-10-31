@@ -93,11 +93,10 @@ export async function init(ctx: OpContext): Promise<void> {
   fs.writeFileSync(path.join(ctx.repoDir, 'competitors.yaml'), competitorsYaml(cfg));
   fs.writeFileSync(path.join(ctx.repoDir, 'config/mysql/competitors.sql'), competitorsSql(cfg));
 
-  const [mysql, packagist, watchtower, verdaccio] = INIT_POST;
+  const [mysql, packagist, verdaccio] = INIT_POST;
   await up(mysql);
   // Packagist mirror for Laravel vendor package caching
   await up(packagist);
-  await up(watchtower);
   await up(verdaccio);
   // Verdaccio needs write access to its storage to accept package uploads
   await run(ctx, 'chmod', ['-R', '777', './data/verdaccio']);

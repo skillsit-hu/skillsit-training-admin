@@ -46,7 +46,6 @@ describe('generated files', () => {
       - "traefik.http.routers.comp01_module_a.entrypoints=websecure"
       - "traefik.http.routers.comp01_module_a.tls=true"
       - "traefik.http.services.comp01_module_a.loadbalancer.server.port=80"
-      - "com.centurylinklabs.watchtower.enable=true"
 
 networks:
   gitea:
