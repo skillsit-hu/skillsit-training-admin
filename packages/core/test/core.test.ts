@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { competitorHost, configSchema, deriveConfig, readConfig, readPulldeckToken, routingEnv, writeAdminRoute, writeConfig, writePulldeckEnv } from '../src/config.js';
+import { DEFAULT_FRAMEWORKS, competitorHost, configSchema, deriveConfig, readConfig, readPulldeckToken, routingEnv, writeAdminRoute, writeConfig, writePulldeckEnv } from '../src/config.js';
 import { competitorRoutes, competitorsSql, competitorsYaml, syncedCompetitorsYaml } from '../src/generate.js';
 import { verifyWebhookSignature, webhookSecret } from '../src/webhook.js';
 import { BASE_FILES, CLEAN_FILES, STOP_FILES } from '../src/compose-files.js';
@@ -208,5 +208,19 @@ describe('admin route', () => {
     expect(route.http.services['infra-admin'].loadBalancer.servers[0].url).toBe('http://infra-admin:8090');
     writeAdminRoute(dir, deriveConfig(configSchema.parse(sample)));
     expect(fs.readFileSync(path.join(dir, 'config/traefik/admin.yaml'), 'utf8')).toContain('"tls": {}');
+  });
+});
+
+describe('framework templates', () => {
+  it('defaults to the built-in list and validates added ones', () => {
+    const cfg = configSchema.parse(sample);
+    expect(cfg.frameworks).toEqual(DEFAULT_FRAMEWORKS);
+    expect(cfg.frameworks).not.toBe(DEFAULT_FRAMEWORKS);
+    expect(configSchema.parse({ ...sample, frameworks: [] }).frameworks).toEqual([]);
+    const svelte = { name: 'svelte', url: 'https://github.com/example/svelte.git' };
+    expect(configSchema.parse({ ...sample, frameworks: [svelte] }).frameworks).toEqual([svelte]);
+    expect(configSchema.safeParse({ ...sample, frameworks: [svelte, svelte] }).success).toBe(false);
+    expect(configSchema.safeParse({ ...sample, frameworks: [{ name: '../config', url: svelte.url }] }).success).toBe(false);
+    expect(configSchema.safeParse({ ...sample, frameworks: [{ name: 'x', url: 'file:///etc' }] }).success).toBe(false);
   });
 });

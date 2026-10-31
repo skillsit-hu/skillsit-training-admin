@@ -4,7 +4,8 @@ import type { OpContext } from '../context.js';
 import { loadConfig, routingEnv } from '../config.js';
 import { compose, ensureBaseLayer, run } from '../exec.js';
 import { BASE_FILES, CLEAN_FILES, START_FILES, STOP_FILES } from '../compose-files.js';
-import { FRAMEWORKS } from '../gitea.js';
+import { FRAMEWORK_CLONE_DIR } from '../gitea.js';
+import { DEFAULT_FRAMEWORKS } from '../schema.js';
 
 /** Restarts the stopped environment. */
 export async function start(ctx: OpContext): Promise<void> {
@@ -70,8 +71,10 @@ export async function clean(ctx: OpContext): Promise<void> {
     if (ids.length) await run(ctx, 'docker', ['rmi', '-f', ...ids]);
   }
 
-  for (const [name] of FRAMEWORKS) {
-    if (!ctx.dryRun) fs.rmSync(path.join(ctx.repoDir, name), { recursive: true, force: true });
+  if (!ctx.dryRun) {
+    fs.rmSync(path.join(ctx.repoDir, FRAMEWORK_CLONE_DIR), { recursive: true, force: true });
+    // Earlier versions cloned the (then fixed) templates into the repo root
+    for (const { name } of DEFAULT_FRAMEWORKS) fs.rmSync(path.join(ctx.repoDir, name), { recursive: true, force: true });
   }
   ctx.log.info('Environment cleaned.');
 }

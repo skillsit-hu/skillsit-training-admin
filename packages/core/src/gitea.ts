@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { OperationError, sleep, type OpContext } from './context.js';
 import { run } from './exec.js';
+import type { Framework } from './schema.js';
 
 // API calls stay on the local Gitea port. The public hostname goes through
 // Traefik, which can hang once the runners start.
@@ -9,22 +10,11 @@ export const GITEA_API = process.env.GITEA_API_URL ?? 'http://127.0.0.1:3000';
 export const FRAMEWORK_ORG = 'frameworks';
 export const COMPETITOR_TEAM = 'competitors';
 
-// [repo name, template source]; the repo name is also the local clone directory.
-export const FRAMEWORKS: [string, string][] = [
-  ['laravel', 'https://github.com/sitc2026-templates/ws26-laravel.git'],
-  ['vanilla', 'https://github.com/sitc2026-templates/ws26-vanilla.git'],
-  ['nuxtjs', 'https://github.com/sitc2026-templates/ws26-nuxtjs.git'],
-  ['nextjs', 'https://github.com/sitc2026-templates/ws26-nextjs.git'],
-  ['nextjs-prisma', 'https://github.com/sitc2026-templates/ws26-nextjs-prisma.git'],
-  ['expressjs', 'https://github.com/sitc2026-templates/ws26-expressjs.git'],
-  ['prisma', 'https://github.com/sitc2026-templates/ws26-prisma.git'],
-  ['zurb-foundation', 'https://github.com/sitc2026-templates/ws26-zurb-foundation.git'],
-  ['vuejs', 'https://github.com/sitc2026-templates/ws26-vuejs.git'],
-  ['reactjs', 'https://github.com/sitc2026-templates/ws26-reactjs.git'],
-  ['bootstrap', 'https://github.com/sitc2026-templates/ws26-bootstrap.git'],
-  ['angular', 'https://github.com/sitc2026-templates/ws26-angular.git'],
-  ['tailwindcss', 'https://github.com/sitc2026-templates/ws26-tailwindcss.git'],
-];
+/**
+ * Where init clones the framework templates before pushing them to Gitea; inside data-admin (gitignored), so a
+ * template name can never clash with a file of the infra repo. Clean removes it.
+ */
+export const FRAMEWORK_CLONE_DIR = 'data-admin/frameworks';
 
 const TOKEN_NAME = 'CreateOrganizationScript';
 /**
@@ -245,29 +235,37 @@ export interface ImportContext {
   domain: string;
 }
 
-export async function importFramework(ctx: OpContext, { token, username, password, domain }: ImportContext, name: string, githubUrl: string): Promise<void> {
+/** Imports one framework template (see Framework in schema.ts) into the frameworks organisation. */
+export async function importFramework(ctx: OpContext, { token, username, password, domain }: ImportContext, { name, url }: Framework): Promise<void> {
   const giteaHost = `git.${domain}`;
-  const dir = path.join(ctx.repoDir, name);
-  // A previous failed import leaves this directory behind.
-  if (!ctx.dryRun) fs.rmSync(dir, { recursive: true, force: true });
-  if (!(await run(ctx, 'git', ['clone', githubUrl, name])).ok) return ctx.log.error(`Failed to clone ${githubUrl}.`);
-
-  const workflowPath = path.join(dir, WORKFLOW_FILE);
+  const clone = path.posix.join(FRAMEWORK_CLONE_DIR, name);
+  const dir = path.join(ctx.repoDir, clone);
   if (!ctx.dryRun) {
-    if (!fs.existsSync(workflowPath)) return ctx.log.error(`Workflow file ${WORKFLOW_FILE} not found in ${name}.`);
-    // The pulldeck URL comes from each user's PULLDECK_BASE_URL secret.
-    const workflow = fs
-      .readFileSync(workflowPath, 'utf8')
-      .replaceAll(TEMPLATE_REGISTRY_HOST, () => giteaHost)
-      .replaceAll(TEMPLATE_PULLDECK_URL, () => '${{ secrets.PULLDECK_BASE_URL }}');
-    fs.writeFileSync(workflowPath, workflow);
+    // A previous failed import leaves the clone behind.
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(dir), { recursive: true });
   }
+  if (!(await run(ctx, 'git', ['clone', url, clone])).ok) return ctx.log.error(`Failed to clone ${url}.`);
 
-  const git = (...args: string[]) => run(ctx, 'git', args, { cwd: name });
-  await git('config', 'user.name', 'Digitalent');
-  await git('config', 'user.email', 'info@skillsit.hu');
-  await git('add', WORKFLOW_FILE);
-  await git('commit', '-m', 'Update Docker registry URL in Gitea Action');
+  const git = (...args: string[]) => run(ctx, 'git', args, { cwd: clone });
+  const workflowPath = path.join(dir, WORKFLOW_FILE);
+  if (!ctx.dryRun && !fs.existsSync(workflowPath)) {
+    // Templates added in the UI may come without the competition's CI workflow; import them as they are.
+    ctx.log.info(`${name} has no ${WORKFLOW_FILE}; importing it unchanged.`);
+  } else {
+    if (!ctx.dryRun) {
+      // The pulldeck URL comes from each user's PULLDECK_BASE_URL secret.
+      const workflow = fs
+        .readFileSync(workflowPath, 'utf8')
+        .replaceAll(TEMPLATE_REGISTRY_HOST, () => giteaHost)
+        .replaceAll(TEMPLATE_PULLDECK_URL, () => '${{ secrets.PULLDECK_BASE_URL }}');
+      fs.writeFileSync(workflowPath, workflow);
+    }
+    await git('config', 'user.name', 'Digitalent');
+    await git('config', 'user.email', 'info@skillsit.hu');
+    await git('add', WORKFLOW_FILE);
+    await git('commit', '-m', 'Update Docker registry URL in Gitea Action');
+  }
 
   const res = await gitea(ctx, 'POST', `/orgs/${FRAMEWORK_ORG}/repos`, {
     token,
@@ -288,8 +286,13 @@ export async function importFramework(ctx: OpContext, { token, username, passwor
   remoteUrl.password = password;
   const remote = remoteUrl.toString();
   const secrets = [remoteUrl.password, encodeURIComponent(password), password];
-  await run(ctx, 'git', ['remote', 'add', 'gitea', remote], { cwd: name, secrets });
-  const pushed = (await run(ctx, 'git', ['push', 'gitea', 'main'], { cwd: name, env: { GIT_TERMINAL_PROMPT: '0' }, secrets })).ok;
-  if (pushed) ctx.log.info(`Repository ${name} pushed to the ${FRAMEWORK_ORG} organization on Gitea with updated GitHub Action!`);
-  else ctx.log.error(`Failed to push ${name} to Gitea.`);
+  await run(ctx, 'git', ['remote', 'add', 'gitea', remote], { cwd: clone, secrets });
+  // HEAD: the template's own default branch (main, master, ...); Gitea takes the first pushed branch as default.
+  const pushed = (await run(ctx, 'git', ['push', 'gitea', 'HEAD'], { cwd: clone, env: { GIT_TERMINAL_PROMPT: '0' }, secrets })).ok;
+  if (pushed) {
+    ctx.log.info(`Repository ${name} pushed to the ${FRAMEWORK_ORG} organization on Gitea.`);
+    if (!ctx.dryRun) fs.rmSync(dir, { recursive: true, force: true });
+  } else {
+    ctx.log.error(`Failed to push ${name} to Gitea.`);
+  }
 }

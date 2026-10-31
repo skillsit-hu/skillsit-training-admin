@@ -16,6 +16,33 @@ export const competitorSchema = z
   })
   .passthrough();
 
+/** A framework template that init imports into the Gitea "frameworks" organisation as a template repository. */
+export const frameworkSchema = z
+  .object({
+    /** Repository name in Gitea (and clone directory name). */
+    name: z.string().max(100).regex(/^[a-z0-9][a-z0-9._-]*$/, 'Lowercase letters, digits, ".", "-" and "_" only'),
+    /** Git URL to clone the template from. */
+    url: z.string().regex(/^https?:\/\/\S+$/, 'Must be an http(s) git URL'),
+  })
+  .passthrough();
+
+/** Used when main-config.json has no "frameworks" (configs from before the list was configurable). */
+export const DEFAULT_FRAMEWORKS: Framework[] = [
+  { name: 'laravel', url: 'https://github.com/sitc2026-templates/ws26-laravel.git' },
+  { name: 'vanilla', url: 'https://github.com/sitc2026-templates/ws26-vanilla.git' },
+  { name: 'nuxtjs', url: 'https://github.com/sitc2026-templates/ws26-nuxtjs.git' },
+  { name: 'nextjs', url: 'https://github.com/sitc2026-templates/ws26-nextjs.git' },
+  { name: 'nextjs-prisma', url: 'https://github.com/sitc2026-templates/ws26-nextjs-prisma.git' },
+  { name: 'expressjs', url: 'https://github.com/sitc2026-templates/ws26-expressjs.git' },
+  { name: 'prisma', url: 'https://github.com/sitc2026-templates/ws26-prisma.git' },
+  { name: 'zurb-foundation', url: 'https://github.com/sitc2026-templates/ws26-zurb-foundation.git' },
+  { name: 'vuejs', url: 'https://github.com/sitc2026-templates/ws26-vuejs.git' },
+  { name: 'reactjs', url: 'https://github.com/sitc2026-templates/ws26-reactjs.git' },
+  { name: 'bootstrap', url: 'https://github.com/sitc2026-templates/ws26-bootstrap.git' },
+  { name: 'angular', url: 'https://github.com/sitc2026-templates/ws26-angular.git' },
+  { name: 'tailwindcss', url: 'https://github.com/sitc2026-templates/ws26-tailwindcss.git' },
+];
+
 export const configSchema = z
   .object({
     domain: z.string().regex(/^[a-z0-9.-]+$/, 'Invalid domain'),
@@ -28,6 +55,7 @@ export const configSchema = z
     password,
     modules: z.array(slug).default([]),
     competitors: z.array(competitorSchema).default([]),
+    frameworks: z.array(frameworkSchema).default(() => DEFAULT_FRAMEWORKS.map((f) => ({ ...f }))),
   })
   .passthrough()
   .superRefine((cfg, issue) => {
@@ -41,6 +69,11 @@ export const configSchema = z
     if (new Set(cfg.modules).size !== cfg.modules.length) {
       issue.addIssue({ code: 'custom', path: ['modules'], message: 'Duplicate module' });
     }
+    const names = new Set<string>();
+    cfg.frameworks.forEach((f, i) => {
+      if (names.has(f.name)) issue.addIssue({ code: 'custom', path: ['frameworks', i, 'name'], message: 'Duplicate template name' });
+      names.add(f.name);
+    });
   });
 
 /**
@@ -51,5 +84,6 @@ export function competitorHost(username: string, module: string, domain: string)
   return `${username}-${module}`.toLowerCase().replaceAll('_', '-') + '.' + domain;
 }
 
+export type Framework = z.infer<typeof frameworkSchema>;
 export type Competitor = z.infer<typeof competitorSchema>;
 export type MainConfig = z.infer<typeof configSchema>;

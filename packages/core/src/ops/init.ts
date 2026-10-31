@@ -8,7 +8,6 @@ import { webhookSecret } from '../webhook.js';
 import { competitorsSql, competitorsYaml, dotEnv } from '../generate.js';
 import {
   COMPETITOR_TEAM,
-  FRAMEWORKS,
   FRAMEWORK_ORG,
   addUserToTeam,
   createOrg,
@@ -66,9 +65,10 @@ export async function init(ctx: OpContext): Promise<void> {
   await createTeam(ctx, token, FRAMEWORK_ORG, COMPETITOR_TEAM, false);
 
   const importCtx = { token, username: cfg.username, password: cfg.password, domain: cfg.domain };
-  for (const [name, url] of FRAMEWORKS) {
+  // The template list comes from main-config.json (frameworks; DEFAULT_FRAMEWORKS when missing)
+  for (const framework of cfg.frameworks) {
     throwIfAborted(ctx.signal);
-    await importFramework(ctx, importCtx, name, url);
+    await importFramework(ctx, importCtx, framework);
   }
 
   await run(ctx, 'docker', ['pull', 'nginx:latest'], { quiet: true });

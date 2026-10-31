@@ -51,6 +51,9 @@ This repo holds the admin app of [skillsit-training-infra](https://github.com/sk
   - `CERT_RESOLVER` is `letsencrypt` only when both `enableHttps` and `letsencrypt` are on.
 - Competitor hostnames come from `competitorHost()` (`schema.ts`): `<user>-<module>`, lowercase, with `_` replaced by `-`, because Let's Encrypt rejects `_`. Init's `competitorsYaml` uses it per module, `syncCompetitors` per repository. The `subdomain` field of a competitor is no longer used.
 - The admin's own Traefik route: `writeAdminRoute()` (`config.ts`, content from `adminRoute()` in `generate.ts`) writes `config/traefik/admin.yaml`. It runs when the server starts, after `PUT /api/config`, and in init. `admin.yaml` has no Traefik labels, because labels would only change when install.sh recreates the container.
+- Framework templates come from `frameworks` in `main-config.json` (`frameworkSchema`, defaulting to `DEFAULT_FRAMEWORKS` in `schema.ts`), and the UI edits them.
+  - Init clones each template into `data-admin/frameworks/<name>` (`FRAMEWORK_CLONE_DIR`), never into the repo root, because names come from the UI.
+  - It rewrites `.gitea/workflows/docker-ci.yaml` if the template has one, then pushes `HEAD` to the `frameworks` org and deletes the clone. Clean removes leftovers.
 - Competitor sync (the former infra-updater service, now `ops/sync.ts`):
   - Gitea's system webhook for repository events posts to `WEBHOOK_PATH` (`/api/hooks/gitea`) on the admin server, at `WEBHOOK_URL` (`http://infra-admin:8090`, over the shared network). `gitea.yaml` allows that private host with `GITEA__webhook__ALLOWED_HOST_LIST`.
   - The route is mounted before `express.json`, because it needs the raw body. It is authenticated by the `X-Gitea-Signature` HMAC, not the session. The secret is generated into `data-admin/webhook-secret` (600) and set on the hook by init's `createWebhook`, which also removes an old infra-updater hook.

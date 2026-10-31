@@ -4,7 +4,7 @@ import path from 'node:path';
 import { OperationError } from './context.js';
 import { writeRepoFile } from './files.js';
 import { adminRoute } from './generate.js';
-import { configSchema, type Competitor, type MainConfig } from './schema.js';
+import { configSchema, type Competitor, type Framework, type MainConfig } from './schema.js';
 
 export * from './schema.js';
 
@@ -17,6 +17,7 @@ export interface DerivedConfig {
   password: string;
   modules: string[];
   competitors: Competitor[];
+  frameworks: Framework[];
   entrypoint: 'websecure' | 'web';
   protocol: 'https' | 'http';
   registryPort: '443' | '5000';
@@ -60,6 +61,7 @@ export function deriveConfig(config: MainConfig): DerivedConfig {
     password: config.password,
     modules: config.modules,
     competitors: config.competitors,
+    frameworks: config.frameworks,
     entrypoint: https ? 'websecure' : 'web',
     protocol: https ? 'https' : 'http',
     registryPort: https ? '443' : '5000',

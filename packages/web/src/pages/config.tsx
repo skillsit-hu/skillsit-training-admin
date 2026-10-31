@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, EyeOff, KeyRound, Pencil, Plus, Save, Trash2, UserPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { competitorHost, competitorSchema, configSchema, type Competitor, type MainConfig } from '@infra/core/schema';
+import { competitorHost, competitorSchema, configSchema, frameworkSchema, type Competitor, type Framework, type MainConfig } from '@infra/core/schema';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -115,6 +115,99 @@ function CompetitorDialog({ open, initial, existing, onClose, onSave }: Competit
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function FrameworksCard({
+  frameworks,
+  issues,
+  onChange,
+}: {
+  frameworks: Framework[];
+  issues: Issues;
+  onChange: (frameworks: Framework[]) => void;
+}) {
+  const [draft, setDraft] = useState<Framework>({ name: '', url: '' });
+  const [draftIssues, setDraftIssues] = useState<Issues>({});
+
+  const add = () => {
+    const parsed = frameworkSchema.safeParse({ name: draft.name.trim(), url: draft.url.trim() });
+    const next = parsed.success ? {} : issuesOf(parsed.error);
+    if (parsed.success && frameworks.some((f) => f.name === parsed.data.name)) next.name = 'Már van ilyen nevű sablon';
+    setDraftIssues(next);
+    if (!parsed.success || Object.keys(next).length) return;
+    onChange([...frameworks, parsed.data]);
+    setDraft({ name: '', url: '' });
+  };
+
+  const listIssue = Object.entries(issues).find(([k]) => k.startsWith('frameworks'))?.[1];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Framework sablonok ({frameworks.length})</CardTitle>
+        <CardDescription>
+          Az Inicializálás ezeket klónozza és tölti fel sablon repóként a Gitea <span className="font-mono">frameworks</span> szervezetébe. A
+          versenyzők ezekből hozzák létre a repóikat. A változás a következő Inicializáláskor lép életbe.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {frameworks.length === 0 && <p className="text-sm text-muted-foreground">Nincs sablon.</p>}
+        {frameworks.length > 0 && (
+          <div className="grid gap-1">
+            {frameworks.map((f) => (
+              <div key={f.name} className="flex items-center gap-2 rounded-md border px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="font-mono text-sm font-medium">{f.name}</div>
+                  <div className="truncate font-mono text-xs text-muted-foreground" title={f.url}>
+                    {f.url}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`${f.name} törlése`}
+                  onClick={() => onChange(frameworks.filter((x) => x.name !== f.name))}
+                >
+                  <Trash2 />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        {listIssue && <p className="text-xs text-destructive">{listIssue}</p>}
+        <div className="grid gap-2 md:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] md:items-start">
+          <Field id="fw-name" label="Repó neve" error={draftIssues.name}>
+            <Input
+              id="fw-name"
+              placeholder="pl. svelte"
+              value={draft.name}
+              aria-invalid={!!draftIssues.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value.toLowerCase() })}
+            />
+          </Field>
+          <Field id="fw-url" label="Git URL" error={draftIssues.url}>
+            <Input
+              id="fw-url"
+              placeholder="https://github.com/…/sablon.git"
+              value={draft.url}
+              aria-invalid={!!draftIssues.url}
+              onChange={(e) => setDraft({ ...draft, url: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  add();
+                }
+              }}
+            />
+          </Field>
+          <Button variant="outline" className="md:mt-[1.375rem]" onClick={add}>
+            <Plus />
+            Hozzáadás
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -360,6 +453,8 @@ export function ConfigPage() {
           )}
         </CardContent>
       </Card>
+
+      <FrameworksCard frameworks={draft.frameworks} issues={issues} onChange={(frameworks) => set({ frameworks })} />
 
       <CompetitorDialog
         open={dialog.open}
