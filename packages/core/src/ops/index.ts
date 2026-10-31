@@ -17,7 +17,7 @@ interface OperationDef<S extends z.ZodTypeAny> {
   /** Checked up front with ensureDocker. */
   docker: boolean;
   args: S;
-  /** CLI usage, positional arguments mapped onto the args object. */
+  /** Argument names in display order (the UI form). */
   cliArgs: (keyof z.infer<S> & string)[];
   run: (ctx: OpContext, args: z.infer<S>) => Promise<void>;
 }

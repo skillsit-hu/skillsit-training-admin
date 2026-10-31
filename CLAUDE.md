@@ -1,0 +1,61 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+This repo holds the admin app of [skillsit-training-infra](https://github.com/skillsit-hu/skillsit-training-infra): a TypeScript npm-workspaces project with the provisioning logic, an Express REST API and a React/shadcn UI.
+- The infra repo holds the Docker Compose stacks, `admin.yaml` and `install.sh`.
+- This app runs as the `infra-admin` container. It operates on an infra checkout that is mounted at `REPO_DIR`.
+- GitHub Actions publishes the image as `ghcr.io/skillsit-hu/skillsit-training-admin` (`.github/workflows/docker.yml`).
+- The app was split out of the infra repo's `app/` directory with its history. The original bash scripts that the ops port are in infra commit `bda7a60`.
+
+## Commands
+
+- `npm ci && npm run build`: builds core, then server, then web.
+- `npm test`: Vitest tests for core (`packages/core/test`). Run a single test with `npm test -w @infra/core -- -t "<name>"`.
+- `npm run typecheck`
+- `npm run dev`: core `tsc --watch`, the server via `tsx watch` on :8090, and Vite on :5173 (it proxies `/api`).
+  - `REPO_DIR=<infra checkout>` is required. Add `DRY_RUN=1` to log every docker/git command and Gitea request instead of executing it.
+  - Run it inside WSL with a Linux Node. With the Windows Node, the Windows `docker.exe` gets spawned instead.
+- shadcn components: from `packages/web`, run `npx shadcn@latest add <name>`.
+- Image: `docker build .`. The build stage runs on `$BUILDPLATFORM`, because the runtime dependencies are pure JS. Only the runtime stage (the docker CLI, compose and git) is built per platform (amd64, arm64).
+
+## Architecture
+
+**`@infra/core`** (`packages/core`) has no Express or React dependency.
+- Every operation in `src/ops/` takes an `OpContext` (`{ repoDir, log, signal?, dryRun? }`) and never calls `chdir`.
+- `run()` in `exec.ts` is an async `spawn`. It streams lines to `ctx.log` and masks any value passed in `secrets`.
+- `compose()` sets `INFRA_DIR=<repoDir>` and the compose project: `infra` for the stacks, and `infra-traefik` for `BASE_FILES`.
+- Fatal errors throw `OperationError`.
+- `ops/index.ts` holds the `OPERATIONS` registry. Each entry has a zod argument schema, the argument names in display order (`cliArgs`), a `destructive` flag, and a `docker` flag (`ensureDocker` pre-check). The server and the UI are both driven by this registry.
+- `schema.ts` (config schema) and `api.ts` (REST types) are browser-safe subpath exports, used by the web app.
+- `compose-files.ts` lists the infra repo's stacks in start/stop/clean/init order. Keep it in sync with the compose files there.
+
+**`@infra/server`** (`packages/server`)
+- Login checks against `username`/`password` in `<REPO_DIR>/config/main-config.json`. The session is an HMAC-signed cookie whose key includes the root password, so a password change logs everyone out.
+- `trust proxy` is 1, because Traefik is the single proxy in front.
+- `JobManager` runs one operation at a time (409 otherwise). It keeps the last 50 jobs in memory and also writes each job's log to `<REPO_DIR>/data-admin/jobs/<id>.log`.
+- `GET /api/jobs/:id/events` is SSE: it replays the lines after `?after=<seq>`, then streams live.
+
+**`@infra/web`** (`packages/web`) uses Vite, React 19, Tailwind v4, shadcn (radix-nova) and TanStack Query. The UI text is Hungarian; operation labels live in `src/lib/labels.ts`.
+
+## Coupling with the infra repo
+
+- The container mounts the infra repo at the same absolute path as on the host. `docker compose` runs inside the container, but the host daemon resolves the stacks' relative bind mounts, so the paths must match.
+- It reaches Gitea at `http://gitea:3000` (`GITEA_API_URL`, over the shared `gitea` network). The public hostname goes through Traefik, which can hang once the runners start.
+- Base layer: `stop` and `clean` never touch `traefik.yaml` and `admin.yaml`. `down` on a compose file without services acts on the whole project, so `clean` skips such files (`hasServices`). `COMPOSE_PROJECT_NAME` beats the top-level `name:`, so never export it.
+- `ensureBaseLayer` creates the external `gitea` network and removes a Traefik container left in the old `infra` project. The infra repo's `install.sh` does the same.
+- Values duplicated across the two repos:
+  - the compose project names: `infra` (`exec.ts`, infra-updater's `DOCKER_PROJECT_NAME`) and `infra-traefik`;
+  - the webhook secret (`gitea.ts`, `infra-updater.yaml`);
+  - the config validation rules (`schema.ts`, `install.sh`).
+
+## Gotchas
+
+- The container runs as root. Write files into the infra repo with `writeRepoFile`/`appendRepoFile` (`core/src/files.ts`), which chown them to the repo directory's owner.
+  - `main-config.json` is 644, because infra-updater reads it.
+  - `pulldeck.env` is 600.
+- `writeConfig` is atomic (temp file + rename). infra-updater mounts the whole `config/` dir, so it picks up the new file.
+- The config schema restricts usernames, modules and subdomains to slug characters, and passwords may not contain `'`, `\` or newlines. These values end up in hostnames, compose YAML and SQL.
+- Service data lives in named volumes (`infra_<name>`), and clean removes them with `down -v`.

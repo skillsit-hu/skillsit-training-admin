@@ -5,7 +5,6 @@ export * from './generate.js';
 export * from './compose-files.js';
 export * from './status.js';
 export * from './ops/index.js';
-export { runCli } from './cli.js';
 export { FRAMEWORKS, GITEA_API } from './gitea.js';
 export * from './api.js';
 export * from './files.js';

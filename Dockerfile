@@ -1,5 +1,7 @@
 # Infra admin: Express API + React UI that runs the infra operations against the host's Docker daemon.
-FROM node:22-bookworm-slim AS build
+# Runs on the build machine's platform: the output is plain JavaScript (no native runtime dependencies),
+# so only the runtime stage below is built per target platform.
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/

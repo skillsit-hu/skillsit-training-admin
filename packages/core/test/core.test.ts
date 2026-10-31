@@ -32,7 +32,7 @@ describe('deriveConfig', () => {
 });
 
 describe('generated files', () => {
-  it('matches the output of the previous init.mjs', () => {
+  it('matches the output of the original init script', () => {
     const cfg = deriveConfig(configSchema.parse(sample));
     expect(competitorsYaml(cfg)).toBe(`services:
   comp01_module_a:

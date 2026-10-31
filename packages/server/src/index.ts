@@ -19,7 +19,11 @@ import { checkCredentials, clearSession, issueSession, loginLimiter, requireAuth
 import { BusyError, JobManager } from './jobs.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repoDir = path.resolve(process.env.REPO_DIR ?? path.join(here, '../../../..'));
+if (!process.env.REPO_DIR) {
+  console.error('REPO_DIR is not set: point it at a checkout of skillsit-training-infra.');
+  process.exit(1);
+}
+const repoDir = path.resolve(process.env.REPO_DIR);
 const webDist = path.resolve(process.env.WEB_DIST ?? path.join(here, '../../web/dist'));
 const port = Number(process.env.ADMIN_PORT ?? 8090);
 const host = process.env.ADMIN_HOST ?? '0.0.0.0';
