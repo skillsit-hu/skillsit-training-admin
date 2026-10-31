@@ -46,16 +46,25 @@ This repo holds the admin app of [skillsit-training-infra](https://github.com/sk
 - It reaches Gitea at `http://gitea:3000` (`GITEA_API_URL`, over the shared `gitea` network). The public hostname goes through Traefik, which can hang once the runners start.
 - Base layer: `stop` and `clean` never touch `traefik.yaml` and `admin.yaml`. `down` on a compose file without services acts on the whole project, so `clean` skips such files (`hasServices`). `COMPOSE_PROJECT_NAME` beats the top-level `name:`, so never export it.
 - `ensureBaseLayer` creates the external `gitea` network and removes a Traefik container left in the old `infra` project. The infra repo's `install.sh` does the same.
+- TLS: `routingEnv()` (`config.ts`) supplies the variables that the compose files interpolate for routing: `GITEA_HOSTNAME`, `REGISTRY_PORT`, `CERT_RESOLVER`, `ACME_EMAIL` and `ACME_CA_SERVER`.
+  - Every `up` of `traefik.yaml` passes them: install.sh, init and start. The derivation has to match install.sh, otherwise compose recreates Traefik.
+  - `CERT_RESOLVER` is `letsencrypt` only when both `enableHttps` and `letsencrypt` are on.
+- Competitor hostnames come from `competitorHost()` (`schema.ts`): `<user>-<module>`, lowercase, with `_` replaced by `-`, because Let's Encrypt rejects `_`. Init's `competitorsYaml` uses it per module, `syncCompetitors` per repository. The `subdomain` field of a competitor is no longer used.
+- Competitor sync (the former infra-updater service, now `ops/sync.ts`):
+  - Gitea's system webhook for repository events posts to `WEBHOOK_PATH` (`/api/hooks/gitea`) on the admin server, at `WEBHOOK_URL` (`http://infra-admin:8090`, over the shared network). `gitea.yaml` allows that private host with `GITEA__webhook__ALLOWED_HOST_LIST`.
+  - The route is mounted before `express.json`, because it needs the raw body. It is authenticated by the `X-Gitea-Signature` HMAC, not the session. The secret is generated into `data-admin/webhook-secret` (600) and set on the hook by init's `createWebhook`, which also removes an old infra-updater hook.
+  - Requests go through the `JobManager` like any operation. A request that arrives while a job runs sets a flag, and one more `syncCompetitors` runs when the manager is idle (`onIdle`).
+  - The sync lists each competitor's repositories and container packages (admin basic auth plus a `Sudo` header). It then rewrites `competitors.yaml` (Sablier-managed services, no Traefik labels) and `config/traefik/competitors.yaml` (JSON, which is valid YAML; an empty file when there are no repos, because Traefik rejects empty sections). Next it pushes an nginx placeholder for repos without an image, and finally runs `compose create`.
 - Values duplicated across the two repos:
-  - the compose project names: `infra` (`exec.ts`, infra-updater's `DOCKER_PROJECT_NAME`) and `infra-traefik`;
-  - the webhook secret (`gitea.ts`, `infra-updater.yaml`);
+  - the compose project names: `infra` (`exec.ts`) and `infra-traefik`;
+  - the admin's container name and port in `WEBHOOK_URL` (`admin.yaml`, `ALLOWED_HOST_LIST` in `gitea.yaml`);
   - the config validation rules (`schema.ts`, `install.sh`).
 
 ## Gotchas
 
 - The container runs as root. Write files into the infra repo with `writeRepoFile`/`appendRepoFile` (`core/src/files.ts`), which chown them to the repo directory's owner.
-  - `main-config.json` is 644, because infra-updater reads it.
+  - `main-config.json` is 644.
   - `pulldeck.env` is 600.
-- `writeConfig` is atomic (temp file + rename). infra-updater mounts the whole `config/` dir, so it picks up the new file.
+- `writeConfig` is atomic (temp file + rename).
 - The config schema restricts usernames, modules and subdomains to slug characters, and passwords may not contain `'`, `\` or newlines. These values end up in hostnames, compose YAML and SQL.
 - Service data lives in named volumes (`infra_<name>`), and clean removes them with `down -v`.

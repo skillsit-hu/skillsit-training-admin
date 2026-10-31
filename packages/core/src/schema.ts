@@ -11,7 +11,8 @@ export const competitorSchema = z
     name: z.string().optional(),
     username: slug,
     password,
-    subdomain: z.string().regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, 'Lowercase letters, digits and "-" only'),
+    /** No longer used: competitor sites are published at competitorHost(). Kept so older configs still parse. */
+    subdomain: z.string().optional(),
   })
   .passthrough();
 
@@ -19,6 +20,10 @@ export const configSchema = z
   .object({
     domain: z.string().regex(/^[a-z0-9.-]+$/, 'Invalid domain'),
     enableHttps: z.union([z.boolean(), z.enum(['true', 'false'])]),
+    /** Per-host Let's Encrypt certificates (HTTP-01); off = Traefik's built-in default certificate. */
+    letsencrypt: z.boolean().default(false),
+    /** Optional ACME account e-mail (expiry notices). */
+    acmeEmail: z.union([z.literal(''), z.string().email('Invalid e-mail')]).optional(),
     username: slug,
     password,
     modules: z.array(slug).default([]),
@@ -37,6 +42,14 @@ export const configSchema = z
       issue.addIssue({ code: 'custom', path: ['modules'], message: 'Duplicate module' });
     }
   });
+
+/**
+ * Public hostname of a competitor's module (or repository, see competitorRoutes). Let's Encrypt rejects "_" in
+ * hostnames, so it becomes "-".
+ */
+export function competitorHost(username: string, module: string, domain: string): string {
+  return `${username}-${module}`.toLowerCase().replaceAll('_', '-') + '.' + domain;
+}
 
 export type Competitor = z.infer<typeof competitorSchema>;
 export type MainConfig = z.infer<typeof configSchema>;

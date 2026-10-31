@@ -16,15 +16,15 @@ export const SHARED_NETWORK = 'gitea';
 export const INIT_PRE_GITEA = ['traefik.yaml', 'gitea.yaml'];
 export const INIT_RUNNERS = 'gitea-runner.yaml';
 export const INIT_POST = ['mysql.yaml', 'packagist.yaml', 'verdaccio.yaml'];
-export const INIT_LATE = ['competitors.yaml', 'pulldeck.yaml', 'sablier.yaml', 'infra-updater.yaml'];
+export const INIT_LATE = ['competitors.yaml', 'pulldeck.yaml', 'sablier.yaml'];
 
 export const START_FILES = ['traefik.yaml', 'gitea.yaml', 'gitea-runner.yaml', 'mysql.yaml', 'packagist.yaml',
-  'verdaccio.yaml', 'infra-updater.yaml'];
+  'verdaccio.yaml'];
 
 export const STOP_FILES = ['gitea-runner.yaml', 'gitea.yaml', 'verdaccio.yaml',
-  'packagist.yaml', 'infra-updater.yaml'];
+  'packagist.yaml'];
 
 export const CLEAN_FILES = ['competitors.yaml', 'pulldeck.yaml', 'sablier.yaml', 'mysql.yaml',
-  'packagist.yaml', 'gitea-runner.yaml', 'gitea.yaml', 'verdaccio.yaml', 'infra-updater.yaml'];
+  'packagist.yaml', 'gitea-runner.yaml', 'gitea.yaml', 'verdaccio.yaml'];
 
 export const ALL_STACKS = [...new Set([...INIT_PRE_GITEA, INIT_RUNNERS, ...INIT_POST, ...INIT_LATE])];

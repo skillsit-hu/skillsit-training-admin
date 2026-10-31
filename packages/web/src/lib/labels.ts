@@ -19,6 +19,10 @@ export const OPERATION_LABELS: Record<OperationName, { title: string; descriptio
     title: 'Versenyzői loginok tiltása',
     description: 'Letiltja az összes versenyző Gitea fiókját (pl. a verseny végén).',
   },
+  syncCompetitors: {
+    title: 'Versenyzői konténerek szinkronizálása',
+    description: 'A versenyzők Gitea repói alapján újragenerálja a versenyzői konténereket és útvonalakat. A Gitea repository webhook automatikusan futtatja.',
+  },
   setupOrgs: { title: 'Alap szervezetek', description: 'Létrehozza az images, frameworks és competitionc Gitea szervezeteket.' },
 };
 

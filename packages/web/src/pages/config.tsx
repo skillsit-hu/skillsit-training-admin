@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, EyeOff, KeyRound, Pencil, Plus, Save, Trash2, UserPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { competitorSchema, configSchema, type Competitor, type MainConfig } from '@infra/core/schema';
+import { competitorHost, competitorSchema, configSchema, type Competitor, type MainConfig } from '@infra/core/schema';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,14 +57,12 @@ interface CompetitorDialogProps {
 }
 
 function CompetitorDialog({ open, initial, existing, onClose, onSave }: CompetitorDialogProps) {
-  const [draft, setDraft] = useState<Competitor>({ name: '', username: '', password: '', subdomain: '' });
+  const [draft, setDraft] = useState<Competitor>({ name: '', username: '', password: '' });
   const [issues, setIssues] = useState<Issues>({});
-  const [subdomainTouched, setSubdomainTouched] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setDraft(initial ?? { name: '', username: '', password: randomPassword(), subdomain: '' });
-    setSubdomainTouched(!!initial);
+    setDraft(initial ?? { name: '', username: '', password: randomPassword() });
     setIssues({});
   }, [open, initial]);
 
@@ -95,21 +93,7 @@ function CompetitorDialog({ open, initial, existing, onClose, onSave }: Competit
               id="c-username"
               value={draft.username}
               aria-invalid={!!issues.username}
-              onChange={(e) => {
-                const username = e.target.value.trim();
-                set(subdomainTouched ? { username } : { username, subdomain: username.toLowerCase().replace(/[^a-z0-9-]/g, '') });
-              }}
-            />
-          </Field>
-          <Field id="c-subdomain" label="Aldomain" error={issues.subdomain}>
-            <Input
-              id="c-subdomain"
-              value={draft.subdomain}
-              aria-invalid={!!issues.subdomain}
-              onChange={(e) => {
-                setSubdomainTouched(true);
-                set({ subdomain: e.target.value.trim() });
-              }}
+              onChange={(e) => set({ username: e.target.value.trim() })}
             />
           </Field>
           <Field id="c-password" label="Jelszó" error={issues.password}>
@@ -135,7 +119,7 @@ function CompetitorDialog({ open, initial, existing, onClose, onSave }: Competit
 }
 
 function CreateInEnvButton({ competitor, dirty, compact }: { competitor: Competitor; dirty: boolean; compact?: boolean }) {
-  const args = { username: competitor.username, password: competitor.password, subdomain: competitor.subdomain, name: competitor.name };
+  const args = { username: competitor.username, password: competitor.password, name: competitor.name };
   return (
     <ConfirmOperation name="createUser" destructive={false} args={args}>
       {(open) => (
@@ -232,6 +216,25 @@ export function ConfigPage() {
             </div>
             <Switch id="https" checked={https} onCheckedChange={(checked) => set({ enableHttps: checked })} />
           </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div>
+              <Label htmlFor="letsencrypt">Let's Encrypt</Label>
+              <p className="text-xs text-muted-foreground">
+                Minden hosthoz saját tanúsítvány (HTTP-01, nyilvános 80-as port és DNS kell). Kikapcsolva a beépített cert. Inicializálás után lép életbe.
+              </p>
+            </div>
+            <Switch id="letsencrypt" checked={draft.letsencrypt} disabled={!https} onCheckedChange={(checked) => set({ letsencrypt: checked })} />
+          </div>
+          <Field id="acmeEmail" label="Let's Encrypt e-mail (opcionális)" error={issues.acmeEmail}>
+            <Input
+              id="acmeEmail"
+              type="email"
+              value={draft.acmeEmail ?? ''}
+              disabled={!https || !draft.letsencrypt}
+              aria-invalid={!!issues.acmeEmail}
+              onChange={(e) => set({ acmeEmail: e.target.value.trim() })}
+            />
+          </Field>
           <Field id="username" label="Root felhasználónév" error={issues.username}>
             <Input id="username" value={draft.username} aria-invalid={!!issues.username} onChange={(e) => set({ username: e.target.value.trim() })} />
           </Field>
@@ -245,7 +248,7 @@ export function ConfigPage() {
         <CardHeader>
           <CardTitle>Modulok</CardTitle>
           <CardDescription>
-            A versenyzői oldalak címe: <span className="font-mono">&lt;aldomain&gt;-&lt;modul&gt;.{draft.domain}</span>
+            A versenyzői oldalak címe: <span className="font-mono">&lt;felhasználó&gt;-&lt;modul&gt;.{draft.domain}</span> (kisbetűvel, a „_” helyett „-”)
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
@@ -302,7 +305,7 @@ export function ConfigPage() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{c.name || c.username}</div>
                   <div className="truncate font-mono text-xs text-muted-foreground">
-                    {c.username} · {c.subdomain}
+                    {c.username}
                   </div>
                   {Object.keys(issues).some((k) => k.startsWith(`competitors.${i}.`)) && <div className="text-xs text-destructive">Hibás adatok</div>}
                 </div>
@@ -325,7 +328,7 @@ export function ConfigPage() {
                   <TableRow>
                     <TableHead>Név</TableHead>
                     <TableHead>Felhasználónév</TableHead>
-                    <TableHead>Aldomain</TableHead>
+                    <TableHead>Első modul címe</TableHead>
                     <TableHead className="text-right">Műveletek</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -337,7 +340,7 @@ export function ConfigPage() {
                         {c.username}
                         {Object.keys(issues).some((k) => k.startsWith(`competitors.${i}.`)) && <span className="ml-2 text-xs text-destructive">hibás</span>}
                       </TableCell>
-                      <TableCell className="font-mono">{c.subdomain}</TableCell>
+                      <TableCell className="font-mono text-xs">{draft.modules[0] ? competitorHost(c.username, draft.modules[0], draft.domain) : '–'}</TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
                           <CreateInEnvButton competitor={c} dirty={dirty} />

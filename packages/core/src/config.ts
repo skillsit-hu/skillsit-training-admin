@@ -19,6 +19,9 @@ export interface DerivedConfig {
   entrypoint: 'websecure' | 'web';
   protocol: 'https' | 'http';
   registryPort: '443' | '5000';
+  /** Traefik certificate resolver for every HTTPS router; empty = the built-in default certificate. */
+  certResolver: 'letsencrypt' | '';
+  acmeEmail: string;
 }
 
 export function readConfig(repoDir: string): MainConfig {
@@ -37,8 +40,8 @@ export function readConfig(repoDir: string): MainConfig {
 }
 
 /**
- * Writes via a temp file + rename; infra-updater mounts the whole config dir, so the new inode is picked up.
- * World-readable like the git checkout it replaces: infra-updater reads it, possibly as a non-root user.
+ * Writes via a temp file + rename, so a reader never sees a half-written file.
+ * World-readable like the git checkout it replaces.
  */
 export function writeConfig(repoDir: string, config: MainConfig): void {
   const file = path.join(repoDir, CONFIG_FILE);
@@ -59,6 +62,23 @@ export function deriveConfig(config: MainConfig): DerivedConfig {
     entrypoint: https ? 'websecure' : 'web',
     protocol: https ? 'https' : 'http',
     registryPort: https ? '443' : '5000',
+    certResolver: https && config.letsencrypt ? 'letsencrypt' : '',
+    acmeEmail: config.acmeEmail ?? '',
+  };
+}
+
+/**
+ * Variables the compose files interpolate for routing and TLS. The same set has to reach every `up` of
+ * traefik.yaml (install.sh, init, start), otherwise compose recreates Traefik with a different command.
+ */
+export function routingEnv(cfg: DerivedConfig): Record<string, string> {
+  return {
+    GITEA_HOSTNAME: cfg.domain,
+    REGISTRY_PORT: cfg.registryPort,
+    CERT_RESOLVER: cfg.certResolver,
+    ACME_EMAIL: cfg.acmeEmail,
+    // Optional staging CA, from the infra repo's .admin.env (install.sh reads the same value)
+    ACME_CA_SERVER: process.env.ACME_CA_SERVER ?? '',
   };
 }
 

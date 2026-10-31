@@ -10,6 +10,7 @@ import {
   isOperationName,
   listOperations,
   readConfig,
+  WEBHOOK_PATH,
   writeConfig,
   type ApiError,
   type JobEvent,
@@ -17,6 +18,7 @@ import {
 } from '@infra/core';
 import { checkCredentials, clearSession, issueSession, loginLimiter, requireAuth, sessionUser } from './auth.js';
 import { BusyError, JobManager } from './jobs.js';
+import { webhookRouter } from './webhook.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 if (!process.env.REPO_DIR) {
@@ -36,6 +38,8 @@ const app = express();
 // Exactly one proxy (Traefik) in front: req.ip is the client Traefik saw, req.secure follows X-Forwarded-Proto.
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
+// Before express.json: it needs the raw body. Authenticated by its HMAC signature, not by the session.
+app.use(WEBHOOK_PATH, webhookRouter(repoDir, jobs));
 app.use(express.json({ limit: '1mb' }));
 
 const api = express.Router();

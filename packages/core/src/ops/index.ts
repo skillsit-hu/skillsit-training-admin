@@ -4,9 +4,10 @@ import { competitorSchema } from '../config.js';
 import { ensureDocker } from '../exec.js';
 import { init } from './init.js';
 import { clean, start, stop } from './lifecycle.js';
+import { syncCompetitors } from './sync.js';
 import { createUser, disableCompetitorLogins, setupOrgs } from './users.js';
 
-export { init, start, stop, clean, createUser, disableCompetitorLogins, setupOrgs };
+export { init, start, stop, clean, createUser, disableCompetitorLogins, setupOrgs, syncCompetitors };
 export { addCompetitorToConfig, type CreateUserArgs } from './users.js';
 
 interface OperationDef<S extends z.ZodTypeAny> {
@@ -73,7 +74,6 @@ export const OPERATIONS = {
     args: z.object({
       username: competitorSchema.shape.username,
       password: competitorSchema.shape.password,
-      subdomain: competitorSchema.shape.subdomain.optional(),
       name: z.string().optional(),
     }),
     cliArgs: ['username', 'password'],
@@ -87,6 +87,15 @@ export const OPERATIONS = {
     args: noArgs,
     cliArgs: [],
     run: (ctx) => disableCompetitorLogins(ctx),
+  }),
+  syncCompetitors: op({
+    title: 'Sync competitor containers',
+    description: "Regenerates the competitor containers and routes from the competitors' Gitea repositories. Gitea's repository webhook runs it automatically.",
+    destructive: false,
+    docker: true,
+    args: noArgs,
+    cliArgs: [],
+    run: (ctx) => syncCompetitors(ctx),
   }),
   setupOrgs: op({
     title: 'Create base organisations',

@@ -9,8 +9,6 @@ import { COMPETITOR_TEAM, FRAMEWORK_ORG, addUserToTeam, createOrg, createPat, gi
 export interface CreateUserArgs {
   username: string;
   password: string;
-  /** Defaults to the username, as create_user.sh did. */
-  subdomain?: string;
   name?: string;
 }
 
@@ -25,7 +23,7 @@ export function addCompetitorToConfig(repoDir: string, args: CreateUserArgs): Ma
     if (existing.password !== args.password) throw new OperationError(`User '${args.username}' already exists in ${CONFIG_FILE}`);
     return raw;
   }
-  const competitor = { ...(args.name ? { name: args.name } : {}), username: args.username, password: args.password, subdomain: args.subdomain ?? args.username };
+  const competitor = { ...(args.name ? { name: args.name } : {}), username: args.username, password: args.password };
   const updated = configSchema.safeParse({ ...raw, competitors: [...raw.competitors, competitor] });
   if (!updated.success) throw new OperationError(updated.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
   writeConfig(repoDir, updated.data);

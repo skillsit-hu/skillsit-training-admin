@@ -27,8 +27,11 @@ export const FRAMEWORKS: [string, string][] = [
 ];
 
 const TOKEN_NAME = 'CreateOrganizationScript';
-// Must match WEBHOOK_SECRET in infra-updater.yaml
-const WEBHOOK_SECRET = 'GFW8Mq5ANOsK';
+/**
+ * Where Gitea delivers the repository webhook: the admin container on the shared network, so neither DNS nor a
+ * certificate is needed. Gitea only calls private addresses it is allowed to (webhook ALLOWED_HOST_LIST in gitea.yaml).
+ */
+export const WEBHOOK_URL = process.env.ADMIN_WEBHOOK_URL ?? 'http://infra-admin:8090/api/hooks/gitea';
 const WORKFLOW_FILE = '.gitea/workflows/docker-ci.yaml';
 const TEMPLATE_REGISTRY_HOST = 'git.sitc.skillsit.eu';
 const TEMPLATE_PULLDECK_URL = 'https://pulldeck.sitc.skillsit.eu';
@@ -43,6 +46,8 @@ export interface GiteaResponse {
 interface GiteaRequest {
   token?: string;
   basic?: [string, string];
+  /** Act as this user (admin credentials only). */
+  sudo?: string;
   body?: unknown;
   timeout?: number;
 }
@@ -51,7 +56,7 @@ export async function gitea(
   ctx: OpContext,
   method: string,
   apiPath: string,
-  { token, basic, body, timeout = 60_000 }: GiteaRequest = {},
+  { token, basic, sudo, body, timeout = 60_000 }: GiteaRequest = {},
 ): Promise<GiteaResponse> {
   if (ctx.dryRun) {
     ctx.log.info(`[dry-run] ${method} ${GITEA_API}/api/v1${apiPath}`);
@@ -60,6 +65,7 @@ export async function gitea(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `token ${token}`;
   if (basic) headers.Authorization = `Basic ${Buffer.from(`${basic[0]}:${basic[1]}`).toString('base64')}`;
+  if (sudo) headers.Sudo = sudo;
   const signals = [AbortSignal.timeout(timeout), ...(ctx.signal ? [ctx.signal] : [])];
   try {
     const res = await fetch(`${GITEA_API}/api/v1${apiPath}`, {
@@ -79,6 +85,20 @@ export async function gitea(
   } catch (err) {
     if (ctx.signal?.aborted) throw new OperationError('Cancelled');
     return { ok: false, status: 0, json: null, text: (err as Error).message };
+  }
+}
+
+const PAGE_SIZE = 50; // Gitea's default MAX_RESPONSE_ITEMS
+
+/** GETs every page of a list endpoint. */
+export async function giteaList(ctx: OpContext, apiPath: string, req: GiteaRequest = {}): Promise<any[]> {
+  const items: any[] = [];
+  for (let page = 1; ; page++) {
+    const res = await gitea(ctx, 'GET', `${apiPath}${apiPath.includes('?') ? '&' : '?'}limit=${PAGE_SIZE}&page=${page}`, req);
+    if (!res.ok) throw new OperationError(`GET ${apiPath} failed (HTTP ${res.status}): ${res.text}`);
+    const batch = Array.isArray(res.json) ? res.json : [];
+    items.push(...batch);
+    if (batch.length < PAGE_SIZE) return items;
   }
 }
 
@@ -187,16 +207,26 @@ export async function setCompetitorSecrets(
   }
 }
 
-export async function createWebhook(ctx: OpContext, domain: string, username: string, password: string): Promise<void> {
+/** (Re)creates the system webhook that triggers syncCompetitors; also drops the one of the former infra-updater. */
+export async function createWebhook(ctx: OpContext, username: string, password: string, secret: string): Promise<void> {
+  const basic: [string, string] = [username, password];
+  const existing = await gitea(ctx, 'GET', '/admin/hooks?limit=50', { basic });
+  for (const hook of Array.isArray(existing.json) ? existing.json : []) {
+    const url = String(hook?.config?.url ?? '');
+    if (url === WEBHOOK_URL || url.includes('://infra-updater.')) {
+      ctx.log.info(`Removing webhook ${url}`);
+      await gitea(ctx, 'DELETE', `/admin/hooks/${hook.id}`, { basic });
+    }
+  }
   const res = await gitea(ctx, 'POST', '/admin/hooks', {
-    basic: [username, password],
+    basic,
     body: {
       type: 'gitea',
       branch_filter: '*',
       config: {
         content_type: 'json',
-        url: `https://infra-updater.${domain}/update`,
-        secret: WEBHOOK_SECRET,
+        url: WEBHOOK_URL,
+        secret,
         is_system_webhook: 'true',
       },
       events: ['repository'],
@@ -204,8 +234,8 @@ export async function createWebhook(ctx: OpContext, domain: string, username: st
       active: true,
     },
   });
-  if (res.ok) ctx.log.info('Infra updater webhook created.');
-  else reportFailure(ctx, 'Creating infra updater webhook', res);
+  if (res.ok) ctx.log.info(`Repository webhook created (${WEBHOOK_URL}).`);
+  else reportFailure(ctx, 'Creating the repository webhook', res);
 }
 
 export interface ImportContext {

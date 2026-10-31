@@ -46,6 +46,7 @@ function describeArgs(args: unknown): string {
 export class JobManager {
   private jobs = new Map<string, Job>();
   private current: Job | null = null;
+  private idleListeners: (() => void)[] = [];
 
   constructor(private readonly repoDir: string, private readonly logDir: string, private readonly dryRun: boolean) {
     // mkdir returns the first directory it had to create; hand every new level back to the repo owner.
@@ -66,6 +67,11 @@ export class JobManager {
 
   running(): JobSummary | null {
     return this.current?.summary ?? null;
+  }
+
+  /** Called whenever a job finishes and nothing is running. */
+  onIdle(listener: () => void): void {
+    this.idleListeners.push(listener);
   }
 
   start(operation: OperationName, args: unknown): JobSummary {
@@ -140,6 +146,7 @@ export class JobManager {
     if (error) job.summary.error = error;
     if (this.current === job) this.current = null;
     job.events.emit('event', { type: 'status', job: job.summary } satisfies JobEvent);
+    if (!this.current) for (const listener of this.idleListeners) listener();
   }
 
   private prune(): void {

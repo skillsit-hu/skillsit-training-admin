@@ -1,21 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { OpContext } from '../context.js';
-import { loadConfig } from '../config.js';
+import { loadConfig, routingEnv } from '../config.js';
 import { compose, ensureBaseLayer, run } from '../exec.js';
 import { BASE_FILES, CLEAN_FILES, START_FILES, STOP_FILES } from '../compose-files.js';
 import { FRAMEWORKS } from '../gitea.js';
 
 /** Restarts the stopped environment. */
 export async function start(ctx: OpContext): Promise<void> {
-  const { domain, registryPort } = loadConfig(ctx.repoDir);
+  const cfg = loadConfig(ctx.repoDir);
   for (const file of START_FILES) {
     if (BASE_FILES.includes(file)) {
       // `up` instead of `start`, so a missing Traefik comes back too
       await ensureBaseLayer(ctx);
-      await compose(ctx, file, ['up', '-d'], { GITEA_HOSTNAME: domain, REGISTRY_PORT: registryPort });
+      await compose(ctx, file, ['up', '-d'], routingEnv(cfg));
     } else {
-      await compose(ctx, file, ['start'], { GITEA_HOSTNAME: domain });
+      await compose(ctx, file, ['start'], { GITEA_HOSTNAME: cfg.domain });
     }
   }
 }

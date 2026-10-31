@@ -1,9 +1,10 @@
 import path from 'node:path';
 import { throwIfAborted, type OpContext } from '../context.js';
-import { loadConfig, writePulldeckEnv } from '../config.js';
+import { loadConfig, routingEnv, writePulldeckEnv } from '../config.js';
 import { compose, ensureBaseLayer, giteaCli, run } from '../exec.js';
 import { INIT_LATE, INIT_POST, INIT_PRE_GITEA, INIT_RUNNERS } from '../compose-files.js';
 import { writeRepoFile } from '../files.js';
+import { webhookSecret } from '../webhook.js';
 import { competitorsSql, competitorsYaml, dotEnv } from '../generate.js';
 import {
   COMPETITOR_TEAM,
@@ -24,12 +25,11 @@ export async function init(ctx: OpContext): Promise<void> {
   const cfg = loadConfig(ctx.repoDir);
   const secrets = [cfg.password, ...cfg.competitors.map((c) => c.password)];
   const composeEnv: Record<string, string> = {
-    GITEA_HOSTNAME: cfg.domain,
+    ...routingEnv(cfg),
     ENABLE_HTTPS: cfg.enableHttps,
     MYSQL_ROOT_PASSWORD: cfg.password,
     ENTRYPOINT: cfg.entrypoint,
     GITEA_PROTOCOL: cfg.protocol,
-    REGISTRY_PORT: cfg.registryPort,
     DOMAIN: cfg.domain,
     USERNAME: cfg.username,
     PASSWORD: cfg.password,
@@ -101,15 +101,15 @@ export async function init(ctx: OpContext): Promise<void> {
   await up(packagist);
   // Its storage is a named volume, initialised from the image with the verdaccio user as owner
   await up(verdaccio);
-  const [competitors, pulldeck, sablier, infraUpdater] = INIT_LATE;
+  const [competitors, pulldeck, sablier] = INIT_LATE;
   await up(competitors);
   // Pulldeck lets the Gitea Actions redeploy competitors' containers
   await up(pulldeck);
-  // Sablier starts competitors' containers on demand (used by infra-updater's Traefik routes)
+  // Sablier starts competitors' containers on demand (used by the routes syncCompetitors writes)
   await up(sablier);
-  await up(infraUpdater);
 
-  await createWebhook(ctx, cfg.domain, cfg.username, cfg.password);
+  // Repository events run syncCompetitors on the admin server
+  await createWebhook(ctx, cfg.username, cfg.password, webhookSecret(ctx.repoDir));
 
   writeRepoFile(ctx.repoDir, path.join(ctx.repoDir, '.env'), dotEnv({
     DOMAIN: cfg.domain,
