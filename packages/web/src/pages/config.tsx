@@ -326,7 +326,7 @@ export function ConfigPage() {
             <div>
               <Label htmlFor="letsencrypt">Let's Encrypt</Label>
               <p className="text-xs text-muted-foreground">
-                Minden hosthoz saját tanúsítvány (HTTP-01, nyilvános 80-as port és DNS kell). Kikapcsolva a beépített cert. Inicializálás után lép életbe.
+                Minden hosthoz saját tanúsítvány (TLS-ALPN-01: nyilvános DNS és kívülről elérhető 443-as port kell). Kikapcsolva a beépített cert. Inicializálás után lép életbe.
               </p>
             </div>
             <Switch id="letsencrypt" checked={draft.letsencrypt} disabled={!https} onCheckedChange={(checked) => set({ letsencrypt: checked })} />

@@ -47,7 +47,7 @@ export const configSchema = z
   .object({
     domain: z.string().regex(/^[a-z0-9.-]+$/, 'Invalid domain'),
     enableHttps: z.union([z.boolean(), z.enum(['true', 'false'])]),
-    /** Per-host Let's Encrypt certificates (HTTP-01); off = Traefik's built-in default certificate. */
+    /** Per-host Let's Encrypt certificates (TLS-ALPN-01 on port 443); off = Traefik's built-in default certificate. */
     letsencrypt: z.boolean().default(false),
     /** Optional ACME account e-mail (expiry notices). */
     acmeEmail: z.union([z.literal(''), z.string().email('Invalid e-mail')]).optional(),
