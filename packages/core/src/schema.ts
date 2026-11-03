@@ -26,23 +26,6 @@ export const frameworkSchema = z
   })
   .passthrough();
 
-/** Used when main-config.json has no "frameworks" (configs from before the list was configurable). */
-export const DEFAULT_FRAMEWORKS: Framework[] = [
-  { name: 'laravel', url: 'https://github.com/sitc2026-templates/ws26-laravel.git' },
-  { name: 'vanilla', url: 'https://github.com/sitc2026-templates/ws26-vanilla.git' },
-  { name: 'nuxtjs', url: 'https://github.com/sitc2026-templates/ws26-nuxtjs.git' },
-  { name: 'nextjs', url: 'https://github.com/sitc2026-templates/ws26-nextjs.git' },
-  { name: 'nextjs-prisma', url: 'https://github.com/sitc2026-templates/ws26-nextjs-prisma.git' },
-  { name: 'expressjs', url: 'https://github.com/sitc2026-templates/ws26-expressjs.git' },
-  { name: 'prisma', url: 'https://github.com/sitc2026-templates/ws26-prisma.git' },
-  { name: 'zurb-foundation', url: 'https://github.com/sitc2026-templates/ws26-zurb-foundation.git' },
-  { name: 'vuejs', url: 'https://github.com/sitc2026-templates/ws26-vuejs.git' },
-  { name: 'reactjs', url: 'https://github.com/sitc2026-templates/ws26-reactjs.git' },
-  { name: 'bootstrap', url: 'https://github.com/sitc2026-templates/ws26-bootstrap.git' },
-  { name: 'angular', url: 'https://github.com/sitc2026-templates/ws26-angular.git' },
-  { name: 'tailwindcss', url: 'https://github.com/sitc2026-templates/ws26-tailwindcss.git' },
-];
-
 export const configSchema = z
   .object({
     domain: z.string().regex(/^[a-z0-9.-]+$/, 'Invalid domain'),
@@ -55,7 +38,8 @@ export const configSchema = z
     password,
     modules: z.array(slug).default([]),
     competitors: z.array(competitorSchema).default([]),
-    frameworks: z.array(frameworkSchema).default(() => DEFAULT_FRAMEWORKS.map((f) => ({ ...f }))),
+    // What the file says is what init imports: no "frameworks" means no templates
+    frameworks: z.array(frameworkSchema).default([]),
   })
   .passthrough()
   .superRefine((cfg, issue) => {

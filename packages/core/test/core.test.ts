@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_FRAMEWORKS, competitorHost, configSchema, deriveConfig, readConfig, readPulldeckToken, routingEnv, writeAdminRoute, writeConfig, writePulldeckEnv } from '../src/config.js';
+import { competitorHost, configSchema, deriveConfig, readConfig, readPulldeckToken, routingEnv, writeAdminRoute, writeConfig, writePulldeckEnv } from '../src/config.js';
 import { competitorRoutes, competitorsSql, competitorsYaml, syncedCompetitorsYaml } from '../src/generate.js';
 import { verifyWebhookSignature, webhookSecret } from '../src/webhook.js';
 import { BASE_FILES, CLEAN_FILES, STOP_FILES } from '../src/compose-files.js';
@@ -212,11 +212,8 @@ describe('admin route', () => {
 });
 
 describe('framework templates', () => {
-  it('defaults to the built-in list and validates added ones', () => {
-    const cfg = configSchema.parse(sample);
-    expect(cfg.frameworks).toEqual(DEFAULT_FRAMEWORKS);
-    expect(cfg.frameworks).not.toBe(DEFAULT_FRAMEWORKS);
-    expect(configSchema.parse({ ...sample, frameworks: [] }).frameworks).toEqual([]);
+  it('has no templates unless the config lists them, and validates them', () => {
+    expect(configSchema.parse(sample).frameworks).toEqual([]);
     const svelte = { name: 'svelte', url: 'https://github.com/example/svelte.git' };
     expect(configSchema.parse({ ...sample, frameworks: [svelte] }).frameworks).toEqual([svelte]);
     expect(configSchema.safeParse({ ...sample, frameworks: [svelte, svelte] }).success).toBe(false);

@@ -165,7 +165,7 @@ function FrameworksCard({
         </CardAction>
       </CardHeader>
       <CardContent className="grid gap-4">
-        {frameworks.length === 0 && <p className="text-sm text-muted-foreground">Nincs sablon.</p>}
+        {frameworks.length === 0 && <p className="text-sm text-muted-foreground">Nincs sablon. Az Inicializálás így egyet sem importál.</p>}
         {frameworks.length > 0 && (
           <div className="grid gap-1">
             {frameworks.map((f) => (

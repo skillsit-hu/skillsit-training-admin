@@ -65,7 +65,7 @@ export async function init(ctx: OpContext): Promise<void> {
   await createTeam(ctx, token, FRAMEWORK_ORG, COMPETITOR_TEAM, false);
 
   const importCtx = { token, username: cfg.username, password: cfg.password, domain: cfg.domain };
-  // The template list comes from main-config.json (frameworks; DEFAULT_FRAMEWORKS when missing)
+  // Exactly the templates listed in main-config.json (frameworks); none when the list is missing or empty
   for (const framework of cfg.frameworks) {
     throwIfAborted(ctx.signal);
     await importFramework(ctx, importCtx, framework);
