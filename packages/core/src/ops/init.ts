@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { throwIfAborted, type OpContext } from '../context.js';
-import { ensureGiteaConfig, loadConfig, routingEnv, writeAdminRoute, writePulldeckEnv } from '../config.js';
+import { ensureGiteaConfig, loadConfig, pulldeckUrl, routingEnv, writeAdminRoute, writePulldeckEnv } from '../config.js';
 import { compose, ensureBaseLayer, giteaCli, run } from '../exec.js';
 import { INIT_LATE, INIT_POST, INIT_PRE_GITEA, INIT_RUNNERS } from '../compose-files.js';
 import { writeRepoFile } from '../files.js';
@@ -56,7 +56,7 @@ export async function init(ctx: OpContext): Promise<void> {
   composeEnv.REGISTRATION_TOKEN = registrationToken;
   await up(INIT_RUNNERS);
 
-  const pulldeckBaseUrl = `${cfg.protocol}://clara.${cfg.domain}`;
+  const pulldeckBaseUrl = pulldeckUrl(cfg);
   const pulldeckToken = ctx.dryRun ? 'dry-run' : writePulldeckEnv(ctx.repoDir, cfg);
 
   const token = await createPat(ctx, cfg.username, cfg.password);

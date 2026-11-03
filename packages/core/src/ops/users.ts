@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { OperationError, type OpContext } from '../context.js';
-import { CONFIG_FILE, configSchema, deriveConfig, readConfig, readPulldeckToken, writeConfig, type MainConfig } from '../config.js';
+import { CONFIG_FILE, configSchema, deriveConfig, pulldeckUrl, readConfig, readPulldeckToken, writeConfig, type MainConfig } from '../config.js';
 import { compose, giteaCli } from '../exec.js';
 import { appendRepoFile } from '../files.js';
 import { newUserSql } from '../generate.js';
@@ -41,7 +41,7 @@ export async function createUser(ctx: OpContext, args: CreateUserArgs): Promise<
 
   const token = await createPat(ctx, cfg.username, cfg.password);
   await addUserToTeam(ctx, token, FRAMEWORK_ORG, COMPETITOR_TEAM, user);
-  await setCompetitorSecrets(ctx, user, pass, `${cfg.protocol}://clara.${cfg.domain}`, pulldeckToken);
+  await setCompetitorSecrets(ctx, user, pass, pulldeckUrl(cfg), pulldeckToken);
 
   const sql = newUserSql(user, pass);
   appendRepoFile(ctx.repoDir, path.join(ctx.repoDir, 'config/mysql/competitors.sql'), sql);
