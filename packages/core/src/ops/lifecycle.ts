@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { OpContext } from '../context.js';
-import { loadConfig, routingEnv } from '../config.js';
+import { ensureGiteaConfig, loadConfig, routingEnv } from '../config.js';
 import { compose, ensureBaseLayer, run } from '../exec.js';
 import { BASE_FILES, CLEAN_FILES, START_FILES, STOP_FILES } from '../compose-files.js';
 import { FRAMEWORK_CLONE_DIR } from '../gitea.js';
@@ -13,6 +13,7 @@ const LEGACY_FRAMEWORK_DIRS = ['laravel', 'vanilla', 'nuxtjs', 'nextjs', 'nextjs
 /** Restarts the stopped environment. */
 export async function start(ctx: OpContext): Promise<void> {
   const cfg = loadConfig(ctx.repoDir);
+  ensureGiteaConfig(ctx.repoDir, ctx.log);
   for (const file of START_FILES) {
     if (BASE_FILES.includes(file)) {
       // `up` instead of `start`, so a missing Traefik comes back too

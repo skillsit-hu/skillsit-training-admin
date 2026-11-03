@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { competitorHost, configSchema, deriveConfig, readConfig, readPulldeckToken, routingEnv, writeAdminRoute, writeConfig, writePulldeckEnv } from '../src/config.js';
+import { competitorHost, configSchema, deriveConfig, ensureGiteaConfig, readConfig, readPulldeckToken, routingEnv, writeAdminRoute, writeConfig, writePulldeckEnv } from '../src/config.js';
 import { competitorRoutes, competitorsSql, competitorsYaml, syncedCompetitorsYaml } from '../src/generate.js';
 import { verifyWebhookSignature, webhookSecret } from '../src/webhook.js';
 import { BASE_FILES, CLEAN_FILES, STOP_FILES } from '../src/compose-files.js';
@@ -219,5 +219,20 @@ describe('framework templates', () => {
     expect(configSchema.safeParse({ ...sample, frameworks: [svelte, svelte] }).success).toBe(false);
     expect(configSchema.safeParse({ ...sample, frameworks: [{ name: '../config', url: svelte.url }] }).success).toBe(false);
     expect(configSchema.safeParse({ ...sample, frameworks: [{ name: 'x', url: 'file:///etc' }] }).success).toBe(false);
+  });
+});
+
+describe('gitea config', () => {
+  it('is created from the template only when missing', () => {
+    const dir = tempRepo();
+    fs.mkdirSync(path.join(dir, 'config/gitea'));
+    fs.writeFileSync(path.join(dir, 'config/gitea/app.ini.template'), 'INTERNAL_TOKEN =\n');
+    const log = { info: () => {} };
+    ensureGiteaConfig(dir, log);
+    expect(fs.readFileSync(path.join(dir, 'config/gitea/app.ini'), 'utf8')).toBe('INTERNAL_TOKEN =\n');
+    fs.writeFileSync(path.join(dir, 'config/gitea/app.ini'), 'INTERNAL_TOKEN = generated\n');
+    ensureGiteaConfig(dir, log);
+    expect(fs.readFileSync(path.join(dir, 'config/gitea/app.ini'), 'utf8')).toBe('INTERNAL_TOKEN = generated\n');
+    expect(() => ensureGiteaConfig(tempRepo(), log)).toThrow(/template/);
   });
 });

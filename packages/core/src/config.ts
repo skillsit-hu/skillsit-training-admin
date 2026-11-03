@@ -142,3 +142,19 @@ export function writeAdminRoute(repoDir: string, cfg: DerivedConfig = loadConfig
   }
   writeRepoFile(repoDir, file, content);
 }
+
+export const GITEA_INI = 'config/gitea/app.ini';
+
+/**
+ * Creates config/gitea/app.ini from the infra repo's secret-free template when it is missing. The file is
+ * gitignored because Gitea writes its generated secrets (INTERNAL_TOKEN, JWT_SECRET) into it; without it Gitea
+ * would start with its web installer. install.sh does the same.
+ */
+export function ensureGiteaConfig(repoDir: string, log: { info: (m: string) => void }): void {
+  const file = path.join(repoDir, GITEA_INI);
+  if (fs.existsSync(file)) return;
+  const template = `${file}.template`;
+  if (!fs.existsSync(template)) throw new OperationError(`${GITEA_INI} and its template are both missing; pull the infra repo.`);
+  writeRepoFile(repoDir, file, fs.readFileSync(template, 'utf8'));
+  log.info(`Created ${GITEA_INI} from the template.`);
+}
